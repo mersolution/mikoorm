@@ -2,7 +2,7 @@
 
 Miko ORM is a lightweight and fast database framework for PHP with fluent query syntax.
 
-https://mikoorm.com/ <br>
+https://mikoorm.com <br>
 https://mikoorm.com/document/index.html
 
 ---
