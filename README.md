@@ -1,4 +1,4 @@
-[![Build](https://github.com/mersolution/mikoorm/actions/workflows/build.yml/badge.svg)](https://github.com/mersolution/mikoorm/actions/workflows/build.yml)
+
 [![Tests](https://github.com/mersolution/mikoorm/actions/workflows/tests.yml/badge.svg)](https://github.com/mersolution/mikoorm/actions/workflows/tests.yml)
 [![Docs](https://img.shields.io/badge/docs-mikoorm.com-0ea5e9?style=for-the-badge&logo=gitbook&logoColor=white)](https://mikoorm.com/docs/)
 [![PHP](https://img.shields.io/badge/PHP-8%2B-777BB4?style=for-the-badge&logo=php&logoColor=white)](#)
