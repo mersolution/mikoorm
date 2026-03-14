@@ -1,5 +1,8 @@
 # Miko ORM Documentation
 
+https://mikoorm.com <br>
+https://mikoorm.com/docs/index.html
+
 [![Docs](https://img.shields.io/badge/docs-mikoorm.com-0ea5e9?style=for-the-badge&logo=gitbook&logoColor=white)](https://mikoorm.com/docs/)
 [![PHP](https://img.shields.io/badge/PHP-8%2B-777BB4?style=for-the-badge&logo=php&logoColor=white)](#)
 [![Coverage](https://img.shields.io/badge/coverage-good-84cc16?style=for-the-badge&logo=codecov&logoColor=white)](#)
@@ -62,13 +65,7 @@ This documentation is organized to help you quickly find the information you nee
 To begin using Miko ORM, check out the **Installation** guide to set up your environment and start building your next high-performance application.
 
 ---
-*Miko ORM is a lightweight and fast database framework for PHP with fluent query syntax.*
-
 Miko ORM is a lightweight and fast database framework for PHP with fluent query syntax.
-
-https://mikoorm.com <br>
-https://mikoorm.com/docs/index.html
-
 ---
 
 ## Installation
