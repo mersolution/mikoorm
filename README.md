@@ -1,9 +1,68 @@
+# Miko ORM Documentation
+
 [![Docs](https://img.shields.io/badge/docs-mikoorm.com-0ea5e9?style=for-the-badge&logo=gitbook&logoColor=white)](https://mikoorm.com/docs/)
 [![PHP](https://img.shields.io/badge/PHP-8%2B-777BB4?style=for-the-badge&logo=php&logoColor=white)](#)
 [![Coverage](https://img.shields.io/badge/coverage-good-84cc16?style=for-the-badge&logo=codecov&logoColor=white)](#)
 [![Mersolution](https://img.shields.io/badge/by-Mersolution%20Technology-111827?style=for-the-badge)](https://mersolution.com)
 
-# Getting Started
+> **Miko ORM** is a lightweight, high-performance PHP ORM and fluent query builder designed for modern PHP applications.
+
+The framework provides a clean and expressive interface for interacting with relational databases while maintaining high performance and minimal complexity. It focuses on **simplicity, flexibility, and developer productivity**, allowing you to perform database operations using an intuitive and readable syntax.
+
+---
+
+## 🚀 Why Miko ORM?
+
+Modern PHP applications require a reliable and efficient database abstraction layer. Miko ORM offers a perfect balance between simplicity and power:
+
+* **Lightweight Architecture:** Minimal overhead and optimized performance.
+* **Fluent Query Builder:** Chainable methods for flexible and readable queries.
+* **Model-Based Interaction:** Clean, object-oriented database management.
+* **Improved Readability:** Reduces code complexity and enhances maintainability.
+* **High Performance:** Optimized specifically for modern PHP environments.
+
+*Unlike heavy frameworks, Miko ORM is designed to be easily integrated into both small-scale microservices and large enterprise applications.*
+
+---
+
+## ✨ Core Features
+
+Miko ORM includes a set of powerful features designed to simplify database interaction:
+
+### 🏗️ Model-Based Access
+Define models that represent your database tables and interact with them using clean, object-oriented syntax.
+
+### 🔗 Fluent Query Builder
+Build complex SQL queries using a readable and chainable interface.
+
+### ⚡ Optimized Performance
+The framework is built for speed and does not introduce unnecessary dependencies.
+
+### 🛠️ Developer-Friendly
+Designed to maximize productivity by reducing boilerplate code and using expressive syntax.
+
+---
+
+## 📖 Documentation Overview
+
+This documentation is organized to help you quickly find the information you need:
+
+| Section | Description |
+| :--- | :--- |
+| **[Installation](#)** | How to install and configure Miko ORM. |
+| **[Models](#)** | Defining models and interacting with tables. |
+| **[Query Builder](#)** | Building powerful queries using the fluent interface. |
+| **[Database Operations](#)** | Practical examples of CRUD (Insert, Update, Delete, Retrieve). |
+| **[Advanced Usage](#)** | Best practices for building scalable applications. |
+
+---
+
+## 🏁 Getting Started
+
+To begin using Miko ORM, check out the **Installation** guide to set up your environment and start building your next high-performance application.
+
+---
+*Miko ORM is a lightweight and fast database framework for PHP with fluent query syntax.*
 
 Miko ORM is a lightweight and fast database framework for PHP with fluent query syntax.
 
