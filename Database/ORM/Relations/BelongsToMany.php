@@ -34,7 +34,7 @@ class BelongsToMany extends Relation
         $this->pivotTable = $pivotTable;
         $this->foreignPivotKey = $foreignPivotKey ?? $this->guessForeignPivotKey();
         $this->relatedPivotKey = $relatedPivotKey ?? $this->guessRelatedPivotKey();
-        
+
         parent::__construct($parent, $related, $parentKey, $relatedKey);
     }
 
@@ -60,7 +60,7 @@ class BelongsToMany extends Relation
         }
 
         $parentKey = $this->parent->{$this->localKey};
-        
+
         if ($parentKey !== null) {
             $this->performJoin();
             $this->newQuery()->where(
@@ -79,7 +79,7 @@ class BelongsToMany extends Relation
     public function addEagerConstraints(array $models): void
     {
         $keys = $this->getKeys($models, $this->localKey);
-        
+
         $this->performJoin();
         $this->newQuery()->whereIn(
             $this->pivotTable . '.' . $this->foreignPivotKey,
@@ -96,7 +96,7 @@ class BelongsToMany extends Relation
 
         foreach ($models as $model) {
             $key = $model->{$this->localKey};
-            
+
             if (isset($dictionary[$key])) {
                 $model->setRelation($relation, $dictionary[$key]);
             } else {
@@ -128,7 +128,7 @@ class BelongsToMany extends Relation
     public function get(): array
     {
         $relatedTable = $this->getRelatedInstance()->getTable();
-        
+
         $columns = [
             $relatedTable . '.*',
             $this->pivotTable . '.' . $this->foreignPivotKey . ' as pivot_' . $this->foreignPivotKey,
@@ -184,7 +184,7 @@ class BelongsToMany extends Relation
             ], $attributes);
 
             $this->parent->getConnection()->execute(
-                "INSERT INTO {$this->pivotTable} (" . implode(', ', array_keys($pivotData)) . ") VALUES (" . 
+                "INSERT INTO {$this->pivotTable} (" . implode(', ', array_keys($pivotData)) . ") VALUES (" .
                 implode(', ', array_fill(0, count($pivotData), '?')) . ")",
                 array_values($pivotData)
             );

@@ -65,7 +65,7 @@ class HealthCheck
     private function checkLatency(): void
     {
         $start = microtime(true);
-        
+
         try {
             $this->connection->execute("SELECT 1");
             $latency = (microtime(true) - $start) * 1000;

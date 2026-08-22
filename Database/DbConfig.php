@@ -2,7 +2,7 @@
 /**
  * MIT License
  * Copyright (c) 2026 Mersolution Technology Ltd.
- * 
+ *
  * DbConfig - Fluent Database Configuration
  * Similar to mersolutionCore DbConfig.cs
  */
@@ -15,7 +15,7 @@ use PDO;
 
 /**
  * Fluent Database Configuration
- * 
+ *
  * Usage:
  *   DbConfig::mysql('localhost', 'database', 'root', 'password')->connect();
  *   DbConfig::sqlite('/path/to/database.sqlite')->connect();
@@ -26,7 +26,7 @@ class DbConfig
 {
     private static ?self $instance = null;
     private static ?Connection $connection = null;
-    
+
     private string $driver = 'mysql';
     private string $host = 'localhost';
     private int $port = 3306;
@@ -50,7 +50,7 @@ class DbConfig
         $instance->username = $username;
         $instance->password = $password;
         $instance->port = $port;
-        
+
         self::$instance = $instance;
         return $instance;
     }
@@ -63,7 +63,7 @@ class DbConfig
         $instance = new self();
         $instance->driver = 'sqlite';
         $instance->database = $databasePath;
-        
+
         self::$instance = $instance;
         return $instance;
     }
@@ -80,7 +80,7 @@ class DbConfig
         $instance->username = $username ?? '';
         $instance->password = $password ?? '';
         $instance->port = $port;
-        
+
         self::$instance = $instance;
         return $instance;
     }
@@ -97,7 +97,7 @@ class DbConfig
         $instance->username = $username;
         $instance->password = $password;
         $instance->port = $port;
-        
+
         self::$instance = $instance;
         return $instance;
     }
@@ -126,7 +126,7 @@ class DbConfig
     public function connect(): Connection
     {
         $driver = DriverFactory::create($this->driver);
-        
+
         $config = [
             'host' => $this->host,
             'port' => $this->port,
@@ -193,7 +193,7 @@ class DbConfig
     public static function fromEnv(): self
     {
         $driver = $_ENV['DB_DRIVER'] ?? 'mysql';
-        
+
         return match($driver) {
             'mysql' => self::mysql(
                 $_ENV['DB_HOST'] ?? $_ENV['DB_HOST_LOCAL'] ?? 'localhost',

@@ -270,6 +270,14 @@ class TableBuilder
         return $this;
     }
 
+    /**
+     * Add soft-delete column (default DeletedAt)
+     */
+    public function softDeletes(string $name = 'DeletedAt'): self
+    {
+        $this->dateTime($name)->nullable();
+        return $this;
+    }
 
     /**
      * Foreign key column (integer)

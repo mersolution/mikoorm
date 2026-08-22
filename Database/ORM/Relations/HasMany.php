@@ -41,7 +41,7 @@ class HasMany extends Relation
         }
 
         $parentKey = $this->parent->{$this->localKey};
-        
+
         if ($parentKey !== null) {
             $this->newQuery()->where($this->foreignKey, '=', $parentKey);
         }
@@ -67,7 +67,7 @@ class HasMany extends Relation
 
         foreach ($models as $model) {
             $key = $model->{$this->localKey};
-            
+
             if (isset($dictionary[$key])) {
                 $model->setRelation($relation, $dictionary[$key]);
             } else {

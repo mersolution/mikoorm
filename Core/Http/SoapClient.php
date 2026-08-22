@@ -2,7 +2,7 @@
 /**
  * MIT License
  * Copyright (c) 2026 Mersolution Technology Ltd.
- * 
+ *
  * SoapClient - SOAP Web Service client wrapper
  * Provides a fluent interface for SOAP operations
  */
@@ -55,7 +55,7 @@ class SoapClient
 
         try {
             $result = $this->getClient()->__soapCall($method, [$params]);
-            
+
             if ($this->options['trace']) {
                 $this->lastRequest = $this->getClient()->__getLastRequest();
                 $this->lastResponse = $this->getClient()->__getLastResponse();
@@ -65,7 +65,7 @@ class SoapClient
 
         } catch (SoapFault $e) {
             $this->lastError = $e;
-            
+
             if ($this->options['trace']) {
                 $this->lastRequest = $this->getClient()->__getLastRequest();
                 $this->lastResponse = $this->getClient()->__getLastResponse();
@@ -152,7 +152,7 @@ class SoapResponse
         if (is_object($this->data)) {
             return json_decode(json_encode($this->data), true);
         }
-        
+
         if (is_array($this->data)) {
             return $this->data;
         }

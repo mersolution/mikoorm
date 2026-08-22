@@ -18,7 +18,7 @@ use PDO;
 
 /**
  * HasMigration Trait - Adds migration capabilities to Model
- * 
+ *
  * Allows defining table schema directly in Model class (Code-First approach)
  * Similar to Entity Framework migrations
  */
@@ -43,7 +43,7 @@ trait HasMigration
                 'password' => Config::env('DB_PASSWORD_LOCAL', ''),
                 'charset' => 'utf8mb4'
             ];
-            
+
             $dsn = sprintf(
                 'mysql:host=%s;port=%s;dbname=%s;charset=%s',
                 $config['host'],
@@ -51,12 +51,12 @@ trait HasMigration
                 $config['database'],
                 $config['charset']
             );
-            
+
             $pdo = new PDO($dsn, $config['username'], $config['password'], [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             ]);
-            
+
             $connection = new Connection($pdo, $config);
             static::$migrationSchema = new Schema($connection);
         }
@@ -65,7 +65,7 @@ trait HasMigration
 
     /**
      * Define table schema (override in child class)
-     * 
+     *
      * Example:
      * protected static function defineSchema(TableBuilder $table): void
      * {

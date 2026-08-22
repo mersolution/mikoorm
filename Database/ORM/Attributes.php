@@ -14,7 +14,7 @@ use Attribute;
 
 /**
  * Table Attribute - Specifies the database table name for a model
- * 
+ *
  * Usage: #[Table('tblUsers')]
  */
 #[Attribute(Attribute::TARGET_CLASS)]
@@ -28,7 +28,7 @@ class Table
 
 /**
  * PrimaryKey Attribute - Specifies the primary key column
- * 
+ *
  * Usage: #[PrimaryKey(autoIncrement: true)]
  */
 #[Attribute(Attribute::TARGET_PROPERTY)]
@@ -41,7 +41,7 @@ class PrimaryKey
 
 /**
  * Column Attribute - Specifies column properties
- * 
+ *
  * Usage: #[Column('email', type: 'VARCHAR', length: 100, nullable: false)]
  */
 #[Attribute(Attribute::TARGET_PROPERTY)]
@@ -62,7 +62,7 @@ class Column
 
 /**
  * Ignore Attribute - Marks a property to be ignored by ORM
- * 
+ *
  * Usage: #[Ignore]
  */
 #[Attribute(Attribute::TARGET_PROPERTY)]
@@ -72,7 +72,7 @@ class Ignore
 
 /**
  * CreatedAt Attribute - Specifies created_at timestamp column
- * 
+ *
  * Usage: #[CreatedAt]
  */
 #[Attribute(Attribute::TARGET_PROPERTY)]
@@ -82,7 +82,7 @@ class CreatedAt
 
 /**
  * UpdatedAt Attribute - Specifies updated_at timestamp column
- * 
+ *
  * Usage: #[UpdatedAt]
  */
 #[Attribute(Attribute::TARGET_PROPERTY)]
@@ -92,7 +92,7 @@ class UpdatedAt
 
 /**
  * SoftDelete Attribute - Specifies soft delete column (deleted_at)
- * 
+ *
  * Usage: #[SoftDelete]
  */
 #[Attribute(Attribute::TARGET_PROPERTY)]
@@ -102,7 +102,7 @@ class SoftDelete
 
 /**
  * HasOne Attribute - Specifies a HasOne relationship (1:1)
- * 
+ *
  * Usage: #[HasOne(Company::class, foreignKey: 'CompanyId')]
  */
 #[Attribute(Attribute::TARGET_PROPERTY)]
@@ -117,7 +117,7 @@ class HasOne
 
 /**
  * HasMany Attribute - Specifies a HasMany relationship (1:N)
- * 
+ *
  * Usage: #[HasMany(Invoice::class, foreignKey: 'CustomerId')]
  */
 #[Attribute(Attribute::TARGET_PROPERTY)]
@@ -132,7 +132,7 @@ class HasMany
 
 /**
  * BelongsTo Attribute - Specifies a BelongsTo relationship (N:1)
- * 
+ *
  * Usage: #[BelongsTo(Company::class, foreignKey: 'CompanyId')]
  */
 #[Attribute(Attribute::TARGET_PROPERTY)]
@@ -147,7 +147,7 @@ class BelongsTo
 
 /**
  * BelongsToMany Attribute - Specifies a BelongsToMany relationship (N:M)
- * 
+ *
  * Usage: #[BelongsToMany(Role::class, pivotTable: 'user_roles')]
  */
 #[Attribute(Attribute::TARGET_PROPERTY)]
@@ -165,7 +165,7 @@ class BelongsToMany
 
 /**
  * Index Attribute - Creates an index on the column
- * 
+ *
  * Usage: #[Index('idx_email')]
  */
 #[Attribute(Attribute::TARGET_PROPERTY)]
@@ -178,7 +178,7 @@ class Index
 
 /**
  * Unique Attribute - Creates a unique constraint on the column
- * 
+ *
  * Usage: #[Unique]
  */
 #[Attribute(Attribute::TARGET_PROPERTY)]
@@ -191,7 +191,7 @@ class Unique
 
 /**
  * ForeignKey Attribute - Creates a foreign key constraint
- * 
+ *
  * Usage: #[ForeignKey(table: 'tblCompanies', column: 'Id', onDelete: 'CASCADE')]
  */
 #[Attribute(Attribute::TARGET_PROPERTY)]

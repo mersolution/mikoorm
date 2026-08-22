@@ -2,7 +2,7 @@
 /**
  * MIT License
  * Copyright (c) 2026 Mersolution Technology Ltd.
- * 
+ *
  * HttpClient - REST API client with cURL (sync & async support)
  * Similar to mersolutionCore HttpClientHelper.cs
  */
@@ -153,7 +153,7 @@ class HttpClient
 
     /**
      * Send HTTP request
-     * 
+     *
      * @param string $method HTTP method
      * @param string $url URL (relative or absolute)
      * @param string|array|null $body Request body
@@ -216,7 +216,7 @@ class HttpClient
 
         // Build headers
         $allHeaders = array_merge($this->defaultHeaders, $headers);
-        
+
         if ($this->bearerToken) {
             $allHeaders['Authorization'] = 'Bearer ' . $this->bearerToken;
         } elseif ($this->basicAuth) {
@@ -276,14 +276,14 @@ class HttpClient
     {
         $headers = [];
         $lines = explode("\r\n", $headerString);
-        
+
         foreach ($lines as $line) {
             if (strpos($line, ':') !== false) {
                 [$key, $value] = explode(':', $line, 2);
                 $headers[trim($key)] = trim($value);
             }
         }
-        
+
         return $headers;
     }
 
@@ -308,7 +308,7 @@ class HttpClient
 
     /**
      * Send multiple requests in parallel (async)
-     * 
+     *
      * @param array $requests Array of ['method' => 'GET', 'url' => '...', 'body' => null, 'headers' => []]
      * @return array Array of HttpResponse objects
      */

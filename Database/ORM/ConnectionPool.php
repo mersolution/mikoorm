@@ -2,7 +2,7 @@
 /**
  * MIT License
  * Copyright (c) 2026 Mersolution Technology Ltd.
- * 
+ *
  * ConnectionPool - Database connection pool management
  * Similar to mersolutionCore ConnectionPool.cs
  */
@@ -10,17 +10,18 @@
 namespace Miko\Database\ORM;
 
 use Miko\Database\Connection;
+use Miko\Database\DbConfig;
 use PDO;
 
 /**
  * Connection Pool Manager
- * 
+ *
  * Usage:
  * ConnectionPool::configure(minSize: 5, maxSize: 100, timeoutSeconds: 30);
  * $connection = ConnectionPool::acquire();
  * // use connection...
  * ConnectionPool::release($connection);
- * 
+ *
  * // Or use with callback
  * ConnectionPool::use(function($connection) {
  *     // use connection...
@@ -96,7 +97,7 @@ class ConnectionPool
         if (!empty(self::$pool)) {
             $entry = array_pop(self::$pool);
             $connection = $entry['connection'];
-            
+
             // Verify connection is still alive
             if (self::isAlive($connection)) {
                 $id = spl_object_id($connection);
@@ -125,11 +126,11 @@ class ConnectionPool
         $startTime = time();
         while (time() - $startTime < self::$timeoutSeconds) {
             usleep(100000); // 100ms
-            
+
             if (!empty(self::$pool)) {
                 $entry = array_pop(self::$pool);
                 $connection = $entry['connection'];
-                
+
                 if (self::isAlive($connection)) {
                     $id = spl_object_id($connection);
                     self::$inUse[$id] = [
@@ -155,11 +156,11 @@ class ConnectionPool
         }
 
         $id = spl_object_id($connection);
-        
+
         if (isset(self::$inUse[$id])) {
             unset(self::$inUse[$id]);
             self::$totalReleased++;
-            
+
             // Return to pool if under max
             if (count(self::$pool) < self::$maxSize && self::isAlive($connection)) {
                 self::$pool[] = [
@@ -176,7 +177,7 @@ class ConnectionPool
     public static function use(callable $callback): mixed
     {
         $connection = self::acquire();
-        
+
         try {
             return $callback($connection);
         } finally {
@@ -247,17 +248,50 @@ class ConnectionPool
     private static function createConnection(): Connection
     {
         self::$totalCreated++;
-        
+
         if (!empty(self::$config)) {
-            return new Connection(
-                self::$config['dsn'] ?? '',
-                self::$config['username'] ?? null,
-                self::$config['password'] ?? null,
-                self::$config['options'] ?? []
-            );
+            return self::connectFromConfig(self::$config);
         }
-        
-        return Connection::getInstance();
+
+        $existing = DbConfig::connection();
+        if ($existing !== null) {
+            return $existing;
+        }
+
+        throw new \RuntimeException(
+            'ConnectionPool has no database config. Call ConnectionPool::setConfig() or DbConfig::mysql(...)->connect() first.'
+        );
+    }
+
+    private static function connectFromConfig(array $config): Connection
+    {
+        $driver = $config['driver'] ?? 'mysql';
+
+        return match ($driver) {
+            'mysql' => DbConfig::mysql(
+                $config['host'] ?? 'localhost',
+                $config['database'] ?? '',
+                $config['username'] ?? 'root',
+                $config['password'] ?? '',
+                (int) ($config['port'] ?? 3306)
+            )->connect(),
+            'pgsql' => DbConfig::postgreSql(
+                $config['host'] ?? 'localhost',
+                $config['database'] ?? '',
+                $config['username'] ?? '',
+                $config['password'] ?? '',
+                (int) ($config['port'] ?? 5432)
+            )->connect(),
+            'sqlite' => DbConfig::sqlite($config['database'] ?? ':memory:')->connect(),
+            'sqlsrv' => DbConfig::sqlServer(
+                $config['host'] ?? 'localhost',
+                $config['database'] ?? '',
+                $config['username'] ?? null,
+                $config['password'] ?? null,
+                (int) ($config['port'] ?? 1433)
+            )->connect(),
+            default => throw new \InvalidArgumentException("Unsupported driver: {$driver}"),
+        };
     }
 
     /**
@@ -281,22 +315,22 @@ class ConnectionPool
     {
         $now = time();
         $keepMinimum = self::$minSize;
-        
+
         self::$pool = array_filter(self::$pool, function($entry) use ($now, &$keepMinimum) {
             // Keep minimum connections
             if ($keepMinimum > 0) {
                 $keepMinimum--;
                 return true;
             }
-            
+
             // Remove if idle too long
             if ($now - $entry['returned_at'] > self::$idleTimeoutSeconds) {
                 return false;
             }
-            
+
             return true;
         });
-        
+
         // Re-index array
         self::$pool = array_values(self::$pool);
     }

@@ -2,7 +2,7 @@
 /**
  * MIT License
  * Copyright (c) 2026 Mersolution Technology Ltd.
- * 
+ *
  * Security Library - Input sanitization, XSS prevention, CSRF protection
  * Similar to mersolutionCore Security.cs
  */
@@ -167,7 +167,7 @@ class Security
         // Algorithm check
         $oddSum = $digits[0] + $digits[2] + $digits[4] + $digits[6] + $digits[8];
         $evenSum = $digits[1] + $digits[3] + $digits[5] + $digits[7];
-        
+
         $check10 = (($oddSum * 7) - $evenSum) % 10;
         if ($check10 !== $digits[9]) {
             return false;
@@ -177,7 +177,7 @@ class Security
         for ($i = 0; $i < 10; $i++) {
             $totalSum += $digits[$i];
         }
-        
+
         return ($totalSum % 10) === $digits[10];
     }
 
@@ -237,7 +237,7 @@ class Security
             return false;
         }
 
-        return Crypto::equals($_SESSION[self::$csrfTokenName], $token);
+        return Crypto::equals((string) $_SESSION[self::$csrfTokenName], $token);
     }
 
     /**
@@ -369,13 +369,13 @@ class Security
     {
         $userAgent = strtolower(self::getUserAgent());
         $bots = ['bot', 'crawler', 'spider', 'slurp', 'googlebot', 'bingbot', 'yandex'];
-        
+
         foreach ($bots as $bot) {
             if (strpos($userAgent, $bot) !== false) {
                 return true;
             }
         }
-        
+
         return false;
     }
 }

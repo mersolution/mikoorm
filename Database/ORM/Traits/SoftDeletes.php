@@ -38,7 +38,7 @@ trait SoftDeletes
      */
     public static function getDeletedAtColumn(): string
     {
-        return 'deleted_at';
+        return 'DeletedAt';
     }
 
     /**
@@ -59,11 +59,11 @@ trait SoftDeletes
     public function forceDelete(): bool
     {
         $this->forceDeleting = true;
-        
+
         $deleted = $this->delete();
-        
+
         $this->forceDeleting = false;
-        
+
         return $deleted;
     }
 

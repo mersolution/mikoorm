@@ -25,11 +25,11 @@ class QueryException extends DatabaseException
     public static function forQuery(string $sql, array $bindings, \Throwable $previous): self
     {
         $message = "Query error: " . $previous->getMessage();
-        
+
         $exception = new self($message, (int)$previous->getCode(), $previous);
         $exception->sql = $sql;
         $exception->bindings = $bindings;
-        
+
         if ($previous instanceof \PDOException) {
             $exception->errorCode = $previous->errorInfo[1] ?? null;
         }

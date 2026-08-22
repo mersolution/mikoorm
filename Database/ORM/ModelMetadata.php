@@ -54,7 +54,7 @@ class ModelMetadata
     private function __construct(string $modelClass)
     {
         $reflection = new ReflectionClass($modelClass);
-        
+
         $this->extractTableAttribute($reflection, $modelClass);
         $this->extractPropertyAttributes($reflection);
     }
@@ -62,7 +62,7 @@ class ModelMetadata
     private function extractTableAttribute(ReflectionClass $reflection, string $modelClass): void
     {
         $tableAttributes = $reflection->getAttributes(Table::class);
-        
+
         if (!empty($tableAttributes)) {
             $table = $tableAttributes[0]->newInstance();
             $this->tableName = $table->name;
@@ -85,7 +85,7 @@ class ModelMetadata
     {
         foreach ($reflection->getProperties(ReflectionProperty::IS_PUBLIC | ReflectionProperty::IS_PROTECTED) as $property) {
             $propertyName = $property->getName();
-            
+
             // Skip static properties
             if ($property->isStatic()) {
                 continue;

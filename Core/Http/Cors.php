@@ -12,7 +12,7 @@ namespace Miko\Core\Http;
 
 /**
  * CORS (Cross-Origin Resource Sharing) Handler
- * 
+ *
  * Usage:
  * Cors::handle();                                        // With default settings
  * Cors::handle(['origins' => ['https://example.com']]);  // With custom settings
@@ -42,51 +42,51 @@ class Cors
 
     /**
      * Set CORS headers
-     * 
+     *
      * @param array $options Custom settings
      * @return void
      */
     public static function handle(array $options = []): void
     {
         $config = array_merge(self::$defaults, $options);
-        
+
         // Origin check
         $origin = $_SERVER['HTTP_ORIGIN'] ?? '*';
-        
+
         if (in_array('*', $config['origins'])) {
             header('Access-Control-Allow-Origin: *');
         } elseif (in_array($origin, $config['origins'])) {
             header("Access-Control-Allow-Origin: {$origin}");
             header('Vary: Origin');
         }
-        
+
         // Methods
         $methods = implode(', ', $config['methods']);
         header("Access-Control-Allow-Methods: {$methods}");
-        
+
         // Headers
         $headers = implode(', ', $config['headers']);
         header("Access-Control-Allow-Headers: {$headers}");
-        
+
         // Expose Headers
         if (!empty($config['expose_headers'])) {
             $exposeHeaders = implode(', ', $config['expose_headers']);
             header("Access-Control-Expose-Headers: {$exposeHeaders}");
         }
-        
+
         // Max Age (preflight cache)
         header("Access-Control-Max-Age: {$config['max_age']}");
-        
+
         // Credentials
         if ($config['credentials']) {
             header('Access-Control-Allow-Credentials: true');
         }
-        
+
         // Content Type
         if ($config['content_type']) {
             header("Content-Type: {$config['content_type']}; charset=utf-8");
         }
-        
+
         // Preflight request (OPTIONS) - respond immediately
         if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
             http_response_code(204);
@@ -96,7 +96,7 @@ class Cors
 
     /**
      * Allow all origins (for development)
-     * 
+     *
      * @return void
      */
     public static function allowAll(): void
@@ -109,7 +109,7 @@ class Cors
 
     /**
      * Allow specific origins (for production)
-     * 
+     *
      * @param array $origins Allowed origins
      * @param bool $credentials Allow cookies/auth headers
      * @return void
@@ -124,11 +124,15 @@ class Cors
 
     /**
      * Standard CORS settings for API
-     * 
+     *
      * @return void
      */
     public static function api(): void
     {
+        header("Cache-Control: no-cache, no-store, must-revalidate");
+        header("Pragma: no-cache");
+        header("Expires: 0");
+
         self::handle([
             'origins' => ['*'],
             'methods' => ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -139,7 +143,7 @@ class Cors
 
     /**
      * Set default settings
-     * 
+     *
      * @param array $defaults New default settings
      * @return void
      */

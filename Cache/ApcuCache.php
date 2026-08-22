@@ -12,7 +12,7 @@ namespace Miko\Cache;
 
 /**
  * APCu Cache - Persistent shared memory cache
- * 
+ *
  * Usage:
  * ApcuCache::put('key', $value, 300);     // Store for 5 minutes
  * $value = ApcuCache::get('key');          // Retrieve
@@ -23,7 +23,7 @@ class ApcuCache
 {
     /**
      * Check if key exists in cache
-     * 
+     *
      * @param string $key
      * @return bool
      */
@@ -34,7 +34,7 @@ class ApcuCache
 
     /**
      * Get value from cache
-     * 
+     *
      * @param string $key
      * @param mixed $default
      * @return mixed
@@ -42,17 +42,17 @@ class ApcuCache
     public static function get(string $key, mixed $default = null): mixed
     {
         $data = apcu_fetch($key, $success);
-        
+
         if (!$success) {
             return $default;
         }
-        
+
         return json_decode($data, true);
     }
 
     /**
      * Store value in cache
-     * 
+     *
      * @param string $key
      * @param mixed $value
      * @param int $ttl Time to live in seconds (default: 60)
@@ -65,7 +65,7 @@ class ApcuCache
 
     /**
      * Delete key from cache
-     * 
+     *
      * @param string $key
      * @return bool
      */
@@ -76,7 +76,7 @@ class ApcuCache
 
     /**
      * Delete all keys with given prefix
-     * 
+     *
      * @param string $prefix
      * @return int Number of deleted keys
      */
@@ -97,7 +97,7 @@ class ApcuCache
     /**
      * Get value from cache or execute callback and store result
      * Uses lock mechanism to prevent cache stampede
-     * 
+     *
      * @param string $key
      * @param int $ttl
      * @param callable $callback
@@ -108,7 +108,7 @@ class ApcuCache
         // Try to get from cache first
         if (apcu_exists($key)) {
             $json = apcu_fetch($key, $success);
-            
+
             if ($success && $json !== false) {
                 return json_decode($json, true);
             }
@@ -122,7 +122,7 @@ class ApcuCache
             usleep(200000); // 200ms
 
             $json = apcu_fetch($key, $success);
-            
+
             if ($success && $json !== false) {
                 return json_decode($json, true);
             }
@@ -141,7 +141,7 @@ class ApcuCache
     /**
      * Smart remember - skip cache if params are not empty
      * Useful for filtered queries where caching doesn't make sense
-     * 
+     *
      * @param string $key
      * @param int $ttl
      * @param array $params If any param is truthy, skip cache
@@ -160,7 +160,7 @@ class ApcuCache
 
     /**
      * Increment a numeric value
-     * 
+     *
      * @param string $key
      * @param int $step
      * @return int|false
@@ -172,7 +172,7 @@ class ApcuCache
 
     /**
      * Decrement a numeric value
-     * 
+     *
      * @param string $key
      * @param int $step
      * @return int|false
@@ -184,7 +184,7 @@ class ApcuCache
 
     /**
      * Clear all cache
-     * 
+     *
      * @return bool
      */
     public static function flush(): bool
@@ -194,7 +194,7 @@ class ApcuCache
 
     /**
      * Get cache statistics
-     * 
+     *
      * @return array
      */
     public static function stats(): array
@@ -221,7 +221,7 @@ class ApcuCache
 
     /**
      * Store value with tags
-     * 
+     *
      * @param string $key
      * @param mixed $value
      * @param int $ttl
@@ -248,7 +248,7 @@ class ApcuCache
     {
         $tagKey = self::TAG_PREFIX . $tag;
         $keys = apcu_fetch($tagKey, $success);
-        
+
         if (!$success || !is_array($keys)) {
             $keys = [];
         }
@@ -261,7 +261,7 @@ class ApcuCache
 
     /**
      * Delete all keys with given tag
-     * 
+     *
      * @param string $tag
      * @return int Number of deleted keys
      */
@@ -287,7 +287,7 @@ class ApcuCache
 
     /**
      * Get all keys for a tag
-     * 
+     *
      * @param string $tag
      * @return array
      */
@@ -301,7 +301,7 @@ class ApcuCache
 
     /**
      * Remember with tags
-     * 
+     *
      * @param string $key
      * @param int $ttl
      * @param callable $callback
@@ -312,7 +312,7 @@ class ApcuCache
     {
         if (apcu_exists($key)) {
             $json = apcu_fetch($key, $success);
-            
+
             if ($success && $json !== false) {
                 return json_decode($json, true);
             }
@@ -324,7 +324,7 @@ class ApcuCache
             usleep(200000);
 
             $json = apcu_fetch($key, $success);
-            
+
             if ($success && $json !== false) {
                 return json_decode($json, true);
             }

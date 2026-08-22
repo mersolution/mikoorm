@@ -11,6 +11,7 @@
 namespace Miko\Database\ORM\Events;
 
 use Miko\Database\ORM\Model;
+use Miko\Database\ORM\ObserverManager;
 
 /**
  * Model Event class
@@ -53,13 +54,17 @@ class ModelEvent
     {
         $modelClass = get_class($model);
 
+        if (ObserverManager::fire($modelClass, $event, $model) === false) {
+            return false;
+        }
+
         if (!isset(self::$listeners[$modelClass][$event])) {
             return true;
         }
 
         foreach (self::$listeners[$modelClass][$event] as $callback) {
             $result = $callback($model);
-            
+
             // If callback returns false, stop event propagation
             if ($result === false) {
                 return false;

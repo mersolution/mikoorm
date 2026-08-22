@@ -2,7 +2,7 @@
 /**
  * MIT License
  * Copyright (c) 2026 Mersolution Technology Ltd.
- * 
+ *
  * JwtHelper - JWT token generation and validation
  * Similar to mersolutionCore JwtHelper.cs
  */
@@ -18,7 +18,7 @@ class JwtHelper
 
     /**
      * Create JWT helper
-     * 
+     *
      * @param string $secretKey Secret key for signing (min 16 characters)
      * @param string|null $issuer Token issuer
      * @param string|null $audience Token audience
@@ -249,7 +249,7 @@ class JwtHelper
     public function refreshToken(string $token): string
     {
         $result = $this->validateToken($token);
-        
+
         if (!$result->isValid) {
             throw new \InvalidArgumentException('Cannot refresh invalid token: ' . $result->errorMessage);
         }

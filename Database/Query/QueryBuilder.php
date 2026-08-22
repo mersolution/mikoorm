@@ -16,7 +16,7 @@ use Miko\Database\Log\QueryLogger;
 
 /**
  * Modern Query Builder - replaces SQLView and SQLViewBuilder
- * 
+ *
  * Features:
  * - Fluent API
  * - Prepared statements (SQL injection safe)
@@ -56,7 +56,7 @@ class QueryBuilder implements QueryBuilderInterface
             $this->columns = ['*'];
             return $this;
         }
-        
+
         $result = [];
         foreach ($columns as $col) {
             if (is_array($col)) {
@@ -65,7 +65,7 @@ class QueryBuilder implements QueryBuilderInterface
                 $result[] = $col;
             }
         }
-        
+
         $this->columns = $result;
         return $this;
     }
@@ -141,7 +141,7 @@ class QueryBuilder implements QueryBuilderInterface
     {
         $mainTable = $this->tableAlias ?? $this->table;
         $condition = "{$mainTable}.{$mainKey} = {$table}.{$targetKey}";
-        
+
         $this->joins[] = [
             'type' => strtoupper($type),
             'table' => $table,
@@ -169,8 +169,12 @@ class QueryBuilder implements QueryBuilderInterface
     /**
      * @inheritDoc
      */
-    public function where(string $column, string $operator, mixed $value): self
+    public function where(mixed $column, mixed $operator = '=', mixed $value = null): self
     {
+        if ($column instanceof \Closure) {
+            return $this->addNestedWhere($column, 'AND');
+        }
+
         $param = $this->createParam();
         $this->wheres[] = ['type' => 'basic', 'column' => $column, 'operator' => $operator, 'param' => $param];
         $this->bindings[$param] = $value;
@@ -180,11 +184,39 @@ class QueryBuilder implements QueryBuilderInterface
     /**
      * @inheritDoc
      */
-    public function orWhere(string $column, string $operator, mixed $value): self
+    public function orWhere(mixed $column, mixed $operator = '=', mixed $value = null): self
     {
+        if ($column instanceof \Closure) {
+            return $this->addNestedWhere($column, 'OR');
+        }
+
         $param = $this->createParam();
         $this->wheres[] = ['type' => 'or', 'column' => $column, 'operator' => $operator, 'param' => $param];
         $this->bindings[$param] = $value;
+        return $this;
+    }
+
+    /**
+     * Grouped where / orWhere: WHERE a = :p AND (b = :p OR c = :p)
+     */
+    private function addNestedWhere(\Closure $callback, string $boolean): self
+    {
+        $nested = new self($this->connection);
+        $nested->paramCounter = $this->paramCounter;
+        $callback($nested);
+        $this->paramCounter = $nested->paramCounter;
+
+        if (empty($nested->wheres)) {
+            return $this;
+        }
+
+        $this->wheres[] = [
+            'type' => 'nested',
+            'boolean' => $boolean,
+            'sql' => $nested->buildWhereClause(),
+        ];
+        $this->bindings = array_merge($this->bindings, $nested->bindings);
+
         return $this;
     }
 
@@ -237,12 +269,21 @@ class QueryBuilder implements QueryBuilderInterface
      */
     public function whereRaw(string $sql, array $bindings = []): self
     {
-        $this->wheres[] = ['type' => 'raw', 'sql' => $sql];
-        
         foreach ($bindings as $value) {
             $param = $this->createParam();
+            $pos = strpos($sql, '?');
+            if ($pos === false) {
+                throw new DatabaseException('whereRaw bindings');
+            }
+            $sql = substr_replace($sql, $param, $pos, 1);
             $this->bindings[$param] = $value;
         }
+
+        if (strpos($sql, '?') !== false) {
+            throw new DatabaseException('whereRaw SQL');
+        }
+
+        $this->wheres[] = ['type' => 'raw', 'sql' => $sql];
 
         return $this;
     }
@@ -459,7 +500,7 @@ class QueryBuilder implements QueryBuilderInterface
     public function orderBy(string $column, string $direction = 'ASC'): self
     {
         $direction = strtoupper($direction);
-        
+
         if (!in_array($direction, ['ASC', 'DESC'])) {
             throw new DatabaseException("Invalid order direction: {$direction}");
         }
@@ -552,7 +593,7 @@ class QueryBuilder implements QueryBuilderInterface
     public function havingRaw(string $sql, array $bindings = []): self
     {
         $this->having[] = $sql;
-        
+
         foreach ($bindings as $value) {
             $param = $this->createParam();
             $this->bindings[$param] = $value;
@@ -590,7 +631,7 @@ class QueryBuilder implements QueryBuilderInterface
 
     /**
      * Execute a raw SQL query and return results
-     * 
+     *
      * @param string $sql Raw SQL query
      * @param array $bindings Optional parameter bindings
      * @return array Query results
@@ -630,13 +671,29 @@ class QueryBuilder implements QueryBuilderInterface
     public function count(): int
     {
         $originalColumns = $this->columns;
-        $this->columns = ['COUNT(*) as aggregate'];
-        
-        $sql = $this->toSql();
+        $originalOrderBy = $this->orderBy;
+        $originalLimit = $this->limit;
+        $originalOffset = $this->offset;
+
+        $this->orderBy = [];
+        $this->limit = null;
+        $this->offset = null;
+
+        if (!empty($this->groupBy)) {
+            $innerSql = $this->toSql();
+            $sql = "SELECT COUNT(*) AS aggregate FROM ({$innerSql}) AS count_table";
+        } else {
+            $this->columns = ['COUNT(*) as aggregate'];
+            $sql = $this->toSql();
+        }
+
         $result = $this->connection->execute($sql, array_values($this->bindings));
-        
+
         $this->columns = $originalColumns;
-        
+        $this->orderBy = $originalOrderBy;
+        $this->limit = $originalLimit;
+        $this->offset = $originalOffset;
+
         $row = $result->first();
         return (int) ($row['aggregate'] ?? 0);
     }
@@ -688,12 +745,12 @@ class QueryBuilder implements QueryBuilderInterface
     {
         $originalColumns = $this->columns;
         $this->columns = ["{$function}({$column}) as aggregate"];
-        
+
         $sql = $this->toSql();
         $result = $this->connection->execute($sql, array_values($this->bindings));
-        
+
         $this->columns = $originalColumns;
-        
+
         $row = $result->first();
         return $row['aggregate'] ?? 0;
     }
@@ -750,7 +807,7 @@ class QueryBuilder implements QueryBuilderInterface
         }
 
         $sql = "UPDATE {$this->table} SET " . implode(', ', $sets);
-        
+
         if (!empty($this->wheres)) {
             $sql .= ' WHERE ' . $this->buildWhereClause();
         }
@@ -760,7 +817,7 @@ class QueryBuilder implements QueryBuilderInterface
         $result = $this->connection->execute($sql, array_values($allBindings));
         $timeMs = (microtime(true) - $startTime) * 1000;
         QueryLogger::log($sql, array_values($allBindings), $timeMs);
-        
+
         return $result->count();
     }
 
@@ -770,7 +827,7 @@ class QueryBuilder implements QueryBuilderInterface
     public function delete(): int
     {
         $sql = "DELETE FROM {$this->table}";
-        
+
         if (!empty($this->wheres)) {
             $sql .= ' WHERE ' . $this->buildWhereClause();
         }
@@ -788,7 +845,7 @@ class QueryBuilder implements QueryBuilderInterface
     public function toSql(): string
     {
         $sql = 'SELECT ';
-        
+
         if ($this->distinct) {
             $sql .= 'DISTINCT ';
         }
@@ -857,7 +914,8 @@ class QueryBuilder implements QueryBuilderInterface
         $clauses = [];
 
         foreach ($this->wheres as $i => $where) {
-            $isOrType = in_array($where['type'], ['or', 'or_in', 'or_null', 'or_not_null']);
+            $isOrType = in_array($where['type'], ['or', 'or_in', 'or_null', 'or_not_null'], true)
+                || ($where['type'] === 'nested' && ($where['boolean'] ?? 'AND') === 'OR');
             $prefix = ($i > 0 && $isOrType) ? 'OR ' : ($i > 0 ? 'AND ' : '');
 
             $clause = match($where['type']) {
@@ -873,6 +931,7 @@ class QueryBuilder implements QueryBuilderInterface
                 'between' => "{$where['column']} BETWEEN {$where['param1']} AND {$where['param2']}",
                 'not_between' => "{$where['column']} NOT BETWEEN {$where['param1']} AND {$where['param2']}",
                 'raw' => $where['sql'],
+                'nested' => '(' . $where['sql'] . ')',
                 default => '',
             };
 
@@ -950,11 +1009,11 @@ class QueryBuilder implements QueryBuilderInterface
     public function findOrFail(int|string $id, string $primaryKey = 'Id'): array
     {
         $result = $this->find($id, $primaryKey);
-        
+
         if ($result === null) {
             throw new DatabaseException("Record not found with {$primaryKey} = {$id}");
         }
-        
+
         return $result;
     }
 
@@ -964,11 +1023,11 @@ class QueryBuilder implements QueryBuilderInterface
     public function firstOrFail(): array
     {
         $result = $this->first();
-        
+
         if ($result === null) {
             throw new DatabaseException("No records found");
         }
-        
+
         return $result;
     }
 
@@ -978,7 +1037,7 @@ class QueryBuilder implements QueryBuilderInterface
     public function increment(string $column, int|float $amount = 1, array $extra = []): int
     {
         $sql = "UPDATE {$this->table} SET {$column} = {$column} + {$amount}";
-        
+
         if (!empty($extra)) {
             $sets = [];
             $extraBindings = [];
@@ -990,7 +1049,7 @@ class QueryBuilder implements QueryBuilderInterface
             $sql .= ', ' . implode(', ', $sets);
             $this->bindings = array_merge($this->bindings, $extraBindings);
         }
-        
+
         if (!empty($this->wheres)) {
             $sql .= ' WHERE ' . $this->buildWhereClause();
         }
@@ -1016,26 +1075,26 @@ class QueryBuilder implements QueryBuilderInterface
         foreach ($attributes as $column => $value) {
             $this->where($column, '=', $value);
         }
-        
+
         $exists = $this->exists();
-        
+
         if ($exists) {
             // Reset wheres and rebuild for update
             $this->wheres = [];
             $this->bindings = [];
-            
+
             foreach ($attributes as $column => $value) {
                 $this->where($column, '=', $value);
             }
-            
+
             $this->update(array_merge($attributes, $values));
             return true;
         }
-        
+
         // Reset for insert
         $this->wheres = [];
         $this->bindings = [];
-        
+
         $this->insert(array_merge($attributes, $values));
         return true;
     }
@@ -1077,10 +1136,13 @@ class QueryBuilder implements QueryBuilderInterface
     /**
      * Paginate results
      */
-    public function paginate(int $page, int $perPage = 15): array
+    public function paginate(int $page, int $perPage = 50): array
     {
+        $page = max(1, $page);
+        $perPage = max(1, min($perPage, 500));
+
         $total = $this->count();
-        $lastPage = (int) ceil($total / $perPage);
+        $lastPage = max(1, (int) ceil($total / $perPage));
         $offset = ($page - 1) * $perPage;
 
         $this->limit($perPage)->offset($offset);
@@ -1088,12 +1150,15 @@ class QueryBuilder implements QueryBuilderInterface
 
         return [
             'data' => $data,
-            'total' => $total,
-            'per_page' => $perPage,
-            'current_page' => $page,
-            'last_page' => $lastPage,
-            'from' => $offset + 1,
-            'to' => min($offset + $perPage, $total),
+            'pagination' => [
+                'current_page' => $page,
+                'last_page' => $lastPage,
+                'per_page' => $perPage,
+                'total' => $total,
+                'from' => $total > 0 ? $offset + 1 : 0,
+                'to' => min($offset + $perPage, $total),
+                'has_more' => $page < $lastPage
+            ]
         ];
     }
 
@@ -1112,11 +1177,11 @@ class QueryBuilder implements QueryBuilderInterface
     public function pluck(string $column, ?string $key = null): array
     {
         $results = $this->get();
-        
+
         if ($key === null) {
             return array_column($results, $column);
         }
-        
+
         $plucked = [];
         foreach ($results as $row) {
             $plucked[$row[$key]] = $row[$column];

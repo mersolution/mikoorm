@@ -2,7 +2,7 @@
 /**
  * MIT License
  * Copyright (c) 2026 Mersolution Technology Ltd.
- * 
+ *
  * ValidationAttributes - Model validation using PHP 8 Attributes
  * Similar to mersolutionCore ValidationAttributes.cs
  */
@@ -243,7 +243,7 @@ class ModelValidator
     {
         $attributes = $property->getAttributes();
         $propertyName = $property->getName();
-        
+
         // Get value using getAttribute if available
         $value = $model->getAttribute($propertyName);
 
@@ -275,6 +275,10 @@ class ModelValidator
             $attribute instanceof Date => $this->validateDate($value, $attribute->format),
             $attribute instanceof Phone => $this->validatePhone($value),
             $attribute instanceof Json => $this->validateJson($value),
+            $attribute instanceof Confirmed => $this->validateConfirmed($property, $value, $attribute),
+            $attribute instanceof CreditCard => $this->validateCreditCard($value),
+            $attribute instanceof UniqueValue => $this->validateUnique($property, $value, $attribute),
+            $attribute instanceof Exists => $this->validateExists($value, $attribute),
             default => true
         };
 
@@ -365,12 +369,12 @@ class ModelValidator
     private function validateDate(mixed $value, ?string $format): bool
     {
         if ($value === null || $value === '') return true;
-        
+
         if ($format) {
             $d = \DateTime::createFromFormat($format, $value);
             return $d && $d->format($format) === $value;
         }
-        
+
         return strtotime($value) !== false;
     }
 
@@ -387,16 +391,79 @@ class ModelValidator
         return json_last_error() === JSON_ERROR_NONE;
     }
 
+    private function validateConfirmed(string $property, mixed $value, Confirmed $attribute): bool
+    {
+        $confirmField = $attribute->confirmationField ?? ($property . '_confirmation');
+        return $value === $this->model->getAttribute($confirmField);
+    }
+
+    private function validateCreditCard(mixed $value): bool
+    {
+        if ($value === null || $value === '') return true;
+        $number = preg_replace('/\D/', '', (string) $value);
+        if (strlen($number) < 13 || strlen($number) > 19) {
+            return false;
+        }
+        $sum = 0;
+        $parity = strlen($number) % 2;
+        for ($i = 0, $len = strlen($number); $i < $len; $i++) {
+            $digit = (int) $number[$i];
+            if ($i % 2 === $parity) {
+                $digit *= 2;
+                if ($digit > 9) {
+                    $digit -= 9;
+                }
+            }
+            $sum += $digit;
+        }
+        return $sum % 10 === 0;
+    }
+
+    private function validateUnique(string $property, mixed $value, UniqueValue $attribute): bool
+    {
+        if ($value === null || $value === '' || $this->model === null) {
+            return true;
+        }
+
+        $table = $attribute->table ?? $this->model::getTable();
+        $column = $attribute->column ?? $property;
+        $sql = "SELECT COUNT(*) AS c FROM {$table} WHERE {$column} = ?";
+        $params = [$value];
+
+        $key = $this->model->getKey();
+        if ($key !== null && $key !== '') {
+            $ignore = $attribute->ignoreColumn ?? $this->model->getPrimaryKey();
+            $sql .= " AND {$ignore} != ?";
+            $params[] = $key;
+        }
+
+        $row = $this->model->getConnection()->execute($sql, $params)->first();
+        $count = is_array($row) ? (int) ($row['c'] ?? reset($row) ?: 0) : 0;
+        return $count === 0;
+    }
+
+    private function validateExists(mixed $value, Exists $attribute): bool
+    {
+        if ($value === null || $value === '' || $this->model === null) {
+            return true;
+        }
+
+        $sql = "SELECT COUNT(*) AS c FROM {$attribute->table} WHERE {$attribute->column} = ?";
+        $row = $this->model->getConnection()->execute($sql, [$value])->first();
+        $count = is_array($row) ? (int) ($row['c'] ?? reset($row) ?: 0) : 0;
+        return $count > 0;
+    }
+
     private function formatMessage(string $message, object $attribute): string
     {
         $replacements = [];
-        
+
         foreach (get_object_vars($attribute) as $key => $value) {
             if ($key !== 'message' && !is_array($value)) {
                 $replacements["{{$key}}"] = $value;
             }
         }
-        
+
         return strtr($message, $replacements);
     }
 

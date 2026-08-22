@@ -2,7 +2,7 @@
 /**
  * MIT License
  * Copyright (c) 2026 Mersolution Technology Ltd.
- * 
+ *
  * XmlClient - XML Web Service client
  * Provides easy XML fetching and parsing
  */

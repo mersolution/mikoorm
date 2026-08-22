@@ -2,7 +2,7 @@
 /**
  * MIT License
  * Copyright (c) 2026 Mersolution Technology Ltd.
- * 
+ *
  * TextHelper Library - String manipulation utilities
  * Similar to mersolutionCore TextHelper.cs
  */
@@ -311,7 +311,7 @@ class TextHelper
     public static function formatPhone(string $phone): string
     {
         $phone = preg_replace('/[^0-9]/', '', $phone);
-        
+
         if (strlen($phone) === 10) {
             return sprintf('(%s) %s %s %s',
                 substr($phone, 0, 3),
@@ -320,7 +320,7 @@ class TextHelper
                 substr($phone, 8, 2)
             );
         }
-        
+
         if (strlen($phone) === 11 && $phone[0] === '0') {
             return sprintf('(%s) %s %s %s',
                 substr($phone, 1, 3),
@@ -355,7 +355,7 @@ class TextHelper
     public static function formatFileSize(int $bytes, int $precision = 2): string
     {
         $units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
-        
+
         for ($i = 0; $bytes > 1024 && $i < count($units) - 1; $i++) {
             $bytes /= 1024;
         }
@@ -412,7 +412,7 @@ class TextHelper
     public static function mask(string $value, string $char = '*', int $visibleStart = 0, int $visibleEnd = 0): string
     {
         $length = mb_strlen($value, 'UTF-8');
-        
+
         if ($length <= $visibleStart + $visibleEnd) {
             return str_repeat($char, $length);
         }
@@ -438,7 +438,7 @@ class TextHelper
         $domain = $parts[1];
 
         $maskedName = self::mask($name, '*', 2, 1);
-        
+
         return $maskedName . '@' . $domain;
     }
 

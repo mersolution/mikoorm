@@ -14,9 +14,9 @@ use Miko\Database\ORM\Model;
 
 /**
  * Base Factory class
- * 
+ *
  * Create fake model instances for testing and seeding.
- * 
+ *
  * Usage:
  * $user = UserFactory::new()->create();
  * $users = UserFactory::new()->count(10)->create();
@@ -190,7 +190,7 @@ abstract class Factory
     {
         $firstNames = ['Ali', 'Ayşe', 'Mehmet', 'Fatma', 'Ahmet', 'Zeynep', 'Mustafa', 'Elif', 'Emre', 'Selin'];
         $lastNames = ['Yılmaz', 'Kaya', 'Demir', 'Çelik', 'Şahin', 'Yıldız', 'Aydın', 'Özdemir', 'Arslan', 'Doğan'];
-        
+
         return $firstNames[array_rand($firstNames)] . ' ' . $lastNames[array_rand($lastNames)];
     }
 
@@ -226,7 +226,7 @@ abstract class Factory
         $startTimestamp = strtotime($start);
         $endTimestamp = strtotime($end);
         $randomTimestamp = random_int($startTimestamp, $endTimestamp);
-        
+
         return date('Y-m-d', $randomTimestamp);
     }
 
@@ -238,7 +238,7 @@ abstract class Factory
         $startTimestamp = strtotime($start);
         $endTimestamp = strtotime($end);
         $randomTimestamp = random_int($startTimestamp, $endTimestamp);
-        
+
         return date('Y-m-d H:i:s', $randomTimestamp);
     }
 

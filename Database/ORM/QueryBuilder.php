@@ -53,22 +53,34 @@ class QueryBuilder
     public function onlyTrashed(): self
     {
         $this->withTrashed = true;
-        // SoftDeletes trait'inde DeletedDate kolonu kullanılıyor
-        $this->whereNotNull('DeletedDate');
+        $column = method_exists($this->model, 'getDeletedAtColumn')
+            ? $this->model::getDeletedAtColumn()
+            : 'DeletedAt';
+        $this->whereNotNull($column);
         return $this;
     }
 
     /**
-     * Add where clause
+     * Add where clause. Pass a Closure for a grouped AND ( ... ) condition.
      */
-    public function where(string $column, mixed $operatorOrValue = null, mixed $value = null): self
+    public function where(mixed $column, mixed $operatorOrValue = null, mixed $value = null): self
     {
-        // Support where('column', 'value') shortcut (equals)
-        if ($value === null && $operatorOrValue !== null) {
+        if ($column instanceof \Closure) {
+            return $this->addNestedWhere($column, 'AND');
+        }
+
+        if (func_num_args() === 2) {
+            if ($operatorOrValue === null) {
+                return $this->whereNull($column);
+            }
             $value = $operatorOrValue;
             $operatorOrValue = '=';
+        } elseif ($value === null && in_array((string) $operatorOrValue, ['=', '!=', '<>'], true)) {
+            return (string) $operatorOrValue === '='
+                ? $this->whereNull($column)
+                : $this->whereNotNull($column);
         }
-        
+
         $this->wheres[] = "{$column} {$operatorOrValue} ?";
         $this->bindings[] = $value;
         return $this;
@@ -88,7 +100,7 @@ class QueryBuilder
         $placeholders = implode(',', array_fill(0, count($values), '?'));
         $this->wheres[] = "{$column} IN ({$placeholders})";
         array_push($this->bindings, ...$values);
-        
+
         return $this;
     }
 
@@ -120,16 +132,36 @@ class QueryBuilder
         return $this;
     }
 
-    /**
-     * Add OR where clause
-     */
-    public function orWhere(string $column, string $operator, mixed $value): self
+    public function orWhereLike(string $column, string $value): self
     {
         if (empty($this->wheres)) {
-            return $this->where($column, $operator, $value);
+            return $this->whereLike($column, $value);
         }
 
-        $this->wheres[] = "OR {$column} {$operator} ?";
+        $this->wheres[] = "OR {$column} LIKE ?";
+        $this->bindings[] = "%{$value}%";
+        return $this;
+    }
+
+    /**
+     * Add OR where clause. Pass a Closure for a grouped OR ( ... ) condition.
+     */
+    public function orWhere(mixed $column, mixed $operatorOrValue = null, mixed $value = null): self
+    {
+        if ($column instanceof \Closure) {
+            return $this->addNestedWhere($column, 'OR');
+        }
+
+        if (func_num_args() === 2) {
+            $value = $operatorOrValue;
+            $operatorOrValue = '=';
+        }
+
+        if (empty($this->wheres)) {
+            return $this->where($column, $operatorOrValue, $value);
+        }
+
+        $this->wheres[] = "OR {$column} {$operatorOrValue} ?";
         $this->bindings[] = $value;
         return $this;
     }
@@ -146,23 +178,25 @@ class QueryBuilder
         $placeholders = implode(',', array_fill(0, count($values), '?'));
         $this->wheres[] = "{$column} NOT IN ({$placeholders})";
         array_push($this->bindings, ...$values);
-        
+
         return $this;
     }
 
     /**
      * Where BETWEEN clause
      */
-    public function whereBetween(string $column, array $values): self
+    public function whereBetween(string $column, mixed $valuesOrMin, mixed $max = null): self
     {
-        if (count($values) !== 2) {
+        $values = $max !== null ? [$valuesOrMin, $max] : $valuesOrMin;
+
+        if (!is_array($values) || count($values) !== 2) {
             throw new DatabaseException('whereBetween requires exactly 2 values');
         }
 
         $this->wheres[] = "{$column} BETWEEN ? AND ?";
         $this->bindings[] = $values[0];
         $this->bindings[] = $values[1];
-        
+
         return $this;
     }
 
@@ -178,16 +212,21 @@ class QueryBuilder
         $this->wheres[] = "{$column} NOT BETWEEN ? AND ?";
         $this->bindings[] = $values[0];
         $this->bindings[] = $values[1];
-        
+
         return $this;
     }
 
     /**
      * Where date equals
      */
-    public function whereDate(string $column, string $operator, string $value): self
+    public function whereDate(string $column, string $operatorOrValue, ?string $value = null): self
     {
-        $this->wheres[] = "DATE({$column}) {$operator} ?";
+        if (func_num_args() === 2) {
+            $value = $operatorOrValue;
+            $operatorOrValue = '=';
+        }
+
+        $this->wheres[] = "DATE({$column}) {$operatorOrValue} ?";
         $this->bindings[] = $value;
         return $this;
     }
@@ -255,7 +294,7 @@ class QueryBuilder
         $placeholders = implode(',', array_fill(0, count($values), '?'));
         $this->wheres[] = "OR {$column} IN ({$placeholders})";
         array_push($this->bindings, ...$values);
-        
+
         return $this;
     }
 
@@ -373,7 +412,7 @@ class QueryBuilder
     public function orderBy(string $column, string $direction = 'ASC'): self
     {
         $direction = strtoupper($direction);
-        
+
         if (!in_array($direction, ['ASC', 'DESC'])) {
             throw new DatabaseException("Invalid order direction: {$direction}");
         }
@@ -422,7 +461,7 @@ class QueryBuilder
     {
         // Get database driver
         $driver = $this->model->getConnection()->getPdo()->getAttribute(\PDO::ATTR_DRIVER_NAME);
-        
+
         $randomFunction = match($driver) {
             'mysql' => 'RAND()',
             'pgsql' => 'RANDOM()',
@@ -430,7 +469,7 @@ class QueryBuilder
             'sqlsrv' => 'NEWID()',
             default => 'RAND()'
         };
-        
+
         $this->orderBy[] = $randomFunction;
         return $this;
     }
@@ -472,9 +511,13 @@ class QueryBuilder
     /**
      * Select specific columns
      */
-    public function select(array $columns): self
+    public function select(array|string ...$columns): self
     {
-        $this->columns = $columns;
+        if (count($columns) === 1 && is_array($columns[0])) {
+            $this->columns = $columns[0];
+        } else {
+            $this->columns = $columns ?: ['*'];
+        }
         return $this;
     }
 
@@ -511,10 +554,10 @@ class QueryBuilder
     public function get(): array
     {
         $sql = $this->buildSelectQuery();
-        
+
         $allBindings = array_merge($this->bindings, $this->havingBindings);
         $result = $this->model->getConnection()->execute($sql, $allBindings);
-        
+
         $models = array_map(
             fn($data) => $this->model::hydrate($data),
             $result->all()
@@ -524,7 +567,7 @@ class QueryBuilder
         if (!empty($this->eagerLoad)) {
             $models = $this->eagerLoadRelations($models);
         }
-        
+
         return $models;
     }
 
@@ -535,8 +578,13 @@ class QueryBuilder
     {
         $this->limit(1);
         $results = $this->get();
-        
+
         return $results[0] ?? null;
+    }
+
+    public function find(mixed $id): ?Model
+    {
+        return $this->where($this->model->getPrimaryKey(), $id)->first();
     }
 
     /**
@@ -546,12 +594,12 @@ class QueryBuilder
     {
         $originalColumns = $this->columns;
         $this->columns = ['COUNT(*) as count'];
-        
+
         $sql = $this->buildSelectQuery();
         $result = $this->model->getConnection()->execute($sql, $this->bindings);
-        
+
         $this->columns = $originalColumns;
-        
+
         $data = $result->first();
         return (int) ($data['count'] ?? 0);
     }
@@ -579,10 +627,10 @@ class QueryBuilder
     {
         $total = $this->count();
         $offset = ($page - 1) * $perPage;
-        
+
         $this->limit($perPage)->offset($offset);
         $items = $this->get();
-        
+
         return [
             'data' => $items,
             'total' => $total,
@@ -638,9 +686,9 @@ class QueryBuilder
     protected function buildSelectQuery(): string
     {
         $columns = implode(', ', $this->columns);
-        
+
         $distinct = $this->distinct ? 'DISTINCT ' : '';
-        
+
         $sql = "SELECT {$distinct}{$columns} FROM " . $this->model::getTable();
         $sql .= $this->buildJoinClause();
         $sql .= $this->buildWhereClause();
@@ -689,15 +737,61 @@ class QueryBuilder
     }
 
     /**
-     * Build WHERE clause
+     * Grouped where / orWhere: WHERE a = ? AND (b = ? OR c = ?)
      */
-    protected function buildWhereClause(): string
+    private function addNestedWhere(\Closure $callback, string $boolean): self
+    {
+        $nested = new self($this->model);
+        $callback($nested);
+
+        $inner = $nested->compileWheres();
+        if ($inner === '') {
+            return $this;
+        }
+
+        $fragment = '(' . $inner . ')';
+        if (!empty($this->wheres)) {
+            $fragment = $boolean . ' ' . $fragment;
+        }
+
+        $this->wheres[] = $fragment;
+        array_push($this->bindings, ...$nested->bindings);
+
+        return $this;
+    }
+
+    /**
+     * Compile WHERE fragments without the WHERE keyword.
+     */
+    protected function compileWheres(): string
     {
         if (empty($this->wheres)) {
             return '';
         }
 
-        return ' WHERE ' . implode(' AND ', $this->wheres);
+        $sql = '';
+        foreach ($this->wheres as $i => $where) {
+            $trimmed = preg_replace('/^(AND|OR)\s+/i', '', $where, 1, $count);
+            if ($i === 0) {
+                $sql .= $trimmed;
+                continue;
+            }
+            $bool = ($count === 1 && preg_match('/^(AND|OR)\s+/i', $where, $m))
+                ? strtoupper($m[1])
+                : 'AND';
+            $sql .= " {$bool} {$trimmed}";
+        }
+
+        return $sql;
+    }
+
+    /**
+     * Build WHERE clause
+     */
+    protected function buildWhereClause(): string
+    {
+        $inner = $this->compileWheres();
+        return $inner === '' ? '' : ' WHERE ' . $inner;
     }
 
     /**
@@ -752,11 +846,11 @@ class QueryBuilder
     public function firstOrFail(): Model
     {
         $result = $this->first();
-        
+
         if ($result === null) {
             throw new DatabaseException("No records found");
         }
-        
+
         return $result;
     }
 
@@ -767,12 +861,12 @@ class QueryBuilder
     {
         $originalColumns = $this->columns;
         $this->columns = [$column];
-        
+
         $sql = $this->buildSelectQuery();
         $result = $this->model->getConnection()->execute($sql, $this->bindings);
-        
+
         $this->columns = $originalColumns;
-        
+
         $data = $result->first();
         return $data[$column] ?? null;
     }
@@ -784,17 +878,17 @@ class QueryBuilder
     {
         $originalColumns = $this->columns;
         $this->columns = $key ? [$key, $column] : [$column];
-        
+
         $sql = $this->buildSelectQuery();
         $result = $this->model->getConnection()->execute($sql, $this->bindings);
         $results = $result->all();
-        
+
         $this->columns = $originalColumns;
-        
+
         if ($key === null) {
             return array_column($results, $column);
         }
-        
+
         $plucked = [];
         foreach ($results as $row) {
             $plucked[$row[$key]] = $row[$column];
@@ -840,7 +934,7 @@ class QueryBuilder
                 ->orderBy($column)
                 ->limit($count)
                 ->get();
-            
+
             $countResults = count($results);
 
             if ($countResults === 0) {
@@ -864,7 +958,7 @@ class QueryBuilder
     {
         $sql = "UPDATE {$this->model::getTable()} SET {$column} = {$column} + ?";
         $bindings = [$amount];
-        
+
         if (!empty($extra)) {
             $sets = [];
             foreach ($extra as $col => $value) {
@@ -873,7 +967,7 @@ class QueryBuilder
             }
             $sql .= ', ' . implode(', ', $sets);
         }
-        
+
         $sql .= $this->buildWhereClause();
         $bindings = array_merge($bindings, $this->bindings);
 
@@ -928,12 +1022,12 @@ class QueryBuilder
     {
         $originalColumns = $this->columns;
         $this->columns = ["{$function}({$column}) as aggregate"];
-        
+
         $sql = $this->buildSelectQuery();
         $result = $this->model->getConnection()->execute($sql, $this->bindings);
-        
+
         $this->columns = $originalColumns;
-        
+
         $data = $result->first();
         return $data['aggregate'] ?? 0;
     }

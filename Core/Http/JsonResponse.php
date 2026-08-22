@@ -66,15 +66,17 @@ class JsonResponse
     /**
      * @param string $status
      * @param int $code
+     * @param array<string, mixed> $extra Örn. ["data" => [...]] (INSUFFICIENT_STOCK vb.)
      * @return void
      */
     #[NoReturn]
-    public static function error(string $status, int $code = 200): void
+    public static function error(string $status, int $code = 200, array $extra = []): void
     {
         http_response_code($code);
         header('Content-Type: application/json; charset=utf-8');
 
-        echo json_encode(['status' => $status], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        $response = array_merge(['status' => $status], $extra);
+        echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
         exit;
     }
 
@@ -96,7 +98,7 @@ class JsonResponse
     #[NoReturn]
     public static function validationError(array $errors, string $status = 'VALIDATION_ERROR'): void
     {
-        http_response_code(422);
+        http_response_code(200);
         header('Content-Type: application/json; charset=utf-8');
 
         echo json_encode([
@@ -113,7 +115,7 @@ class JsonResponse
     #[NoReturn]
     public static function notFound(string $status = 'NOT_FOUND'): void
     {
-        self::error($status, 404);
+        self::error($status, 200);
     }
 
     /**
@@ -133,7 +135,7 @@ class JsonResponse
     #[NoReturn]
     public static function forbidden(string $status = 'FORBIDDEN'): void
     {
-        self::error($status, 403);
+        self::error($status, 200);
     }
 
     /**
@@ -143,7 +145,7 @@ class JsonResponse
     #[NoReturn]
     public static function serverError(string $status = 'SERVER_ERROR'): void
     {
-        self::error($status, 500);
+        self::error($status, 200);
     }
 
     /**
@@ -167,7 +169,6 @@ class JsonResponse
         exit;
     }
 
-
     /**
      * @param array $data
      * @param array $meta
@@ -186,7 +187,6 @@ class JsonResponse
         ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
         exit;
     }
-
 
     /**
      * @param mixed $data

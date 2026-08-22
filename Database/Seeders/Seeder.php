@@ -14,7 +14,7 @@ use Miko\Database\ConnectionInterface;
 
 /**
  * Base Seeder class
- * 
+ *
  * Extend this class to create database seeders for populating
  * your database with test or initial data.
  */
@@ -38,12 +38,12 @@ abstract class Seeder
     protected function call(string $seederClass): void
     {
         $seeder = new $seederClass($this->connection);
-        
+
         echo "Seeding: {$seederClass}\n";
         $startTime = microtime(true);
-        
+
         $seeder->run();
-        
+
         $time = round((microtime(true) - $startTime) * 1000, 2);
         echo "Seeded:  {$seederClass} ({$time}ms)\n";
     }
@@ -64,7 +64,7 @@ abstract class Seeder
     protected function truncate(string $table): void
     {
         $driver = $this->connection->getPdo()->getAttribute(\PDO::ATTR_DRIVER_NAME);
-        
+
         if ($driver === 'sqlite') {
             $this->connection->execute("DELETE FROM {$table}");
             $this->connection->execute("DELETE FROM sqlite_sequence WHERE name = ?", [$table]);
@@ -96,9 +96,9 @@ abstract class Seeder
         $columns = array_keys($data[0]);
         $placeholders = '(' . implode(', ', array_fill(0, count($columns), '?')) . ')';
         $allPlaceholders = implode(', ', array_fill(0, count($data), $placeholders));
-        
+
         $sql = "INSERT INTO {$table} (" . implode(', ', $columns) . ") VALUES {$allPlaceholders}";
-        
+
         $bindings = [];
         foreach ($data as $row) {
             foreach ($columns as $column) {

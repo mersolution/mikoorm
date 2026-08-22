@@ -12,6 +12,7 @@ namespace Miko\Database\ORM;
 
 use Miko\Database\ConnectionInterface;
 use Miko\Database\Connection;
+use Miko\Database\DbConfig;
 use Miko\Database\Migration\Schema;
 use Miko\Database\Migration\Migrator;
 use Miko\Database\Migration\TableBuilder;
@@ -23,13 +24,13 @@ use PDO;
 /**
  * DbContext - Database context with auto-migration support
  * Similar to Entity Framework DbContext / mersolutionCore DbContext
- * 
+ *
  * Usage:
  *   class AppDbContext extends DbContext {
  *       public MikoSet $Users;    // Auto-creates tblUsers table
  *       public MikoSet $Products; // Auto-creates tblProducts table
  *   }
- *   
+ *
  *   $db = new AppDbContext();
  *   $db->ensureCreated(); // Creates all tables from MikoSet properties
  */
@@ -46,7 +47,7 @@ abstract class DbContext
             $this->connection = $connection;
             $this->pdo = $connection->getPdo();
         }
-        
+
         $this->discoverModels();
     }
 
@@ -57,26 +58,41 @@ abstract class DbContext
     {
         if ($this->connection === null) {
             $config = $this->getConfig();
-            
-            // Ensure database exists
-            Migrator::ensureDatabaseExists($config);
-            
-            $dsn = sprintf(
-                'mysql:host=%s;port=%s;dbname=%s;charset=%s',
-                $config['host'],
-                $config['port'] ?? 3306,
-                $config['database'],
-                $config['charset'] ?? 'utf8mb4'
-            );
-            
-            $this->pdo = new PDO($dsn, $config['username'], $config['password'], [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            ]);
-            
-            $this->connection = new Connection($this->pdo, $config);
+            $driver = $config['driver'] ?? 'mysql';
+
+            if ($driver === 'mysql') {
+                Migrator::ensureDatabaseExists($config);
+            }
+
+            $this->connection = match ($driver) {
+                'mysql' => DbConfig::mysql(
+                    $config['host'] ?? 'localhost',
+                    $config['database'] ?? '',
+                    $config['username'] ?? 'root',
+                    $config['password'] ?? '',
+                    (int) ($config['port'] ?? 3306)
+                )->charset($config['charset'] ?? 'utf8mb4')->connect(),
+                'pgsql' => DbConfig::postgreSql(
+                    $config['host'] ?? 'localhost',
+                    $config['database'] ?? '',
+                    $config['username'] ?? '',
+                    $config['password'] ?? '',
+                    (int) ($config['port'] ?? 5432)
+                )->connect(),
+                'sqlite' => DbConfig::sqlite($config['database'] ?? ':memory:')->connect(),
+                'sqlsrv' => DbConfig::sqlServer(
+                    $config['host'] ?? 'localhost',
+                    $config['database'] ?? '',
+                    $config['username'] ?? null,
+                    $config['password'] ?? null,
+                    (int) ($config['port'] ?? 1433)
+                )->connect(),
+                default => throw new \InvalidArgumentException("Unsupported driver: {$driver}"),
+            };
+
+            $this->pdo = $this->connection->getPdo();
         }
-        
+
         return $this->connection;
     }
 
@@ -86,6 +102,7 @@ abstract class DbContext
     protected function getConfig(): array
     {
         return [
+            'driver' => Config::env('DB_DRIVER', 'mysql'),
             'host' => Config::env('DB_HOST_LOCAL', 'localhost'),
             'port' => (int) Config::env('DB_PORT', 3306),
             'database' => Config::env('DB_DATABASE_LOCAL', 'database'),
@@ -101,18 +118,18 @@ abstract class DbContext
     protected function discoverModels(): void
     {
         $reflection = new ReflectionClass($this);
-        
+
         foreach ($reflection->getProperties(ReflectionProperty::IS_PUBLIC) as $property) {
             $propertyName = $property->getName();
             $type = $property->getType();
-            
+
             if ($type && $type->getName() === MikoSet::class) {
                 // Get model class from property name (e.g., Users -> User)
                 $modelClass = $this->resolveModelClass($propertyName);
-                
+
                 if ($modelClass && class_exists($modelClass)) {
                     $this->modelTypes[$propertyName] = $modelClass;
-                    
+
                     // Create MikoSet instance
                     $mikoSet = new MikoSet($modelClass);
                     $this->mikoSets[$propertyName] = $mikoSet;
@@ -134,22 +151,21 @@ abstract class DbContext
         if (substr($propertyName, -3) === 'ies') {
             $singular = substr($propertyName, 0, -3) . 'y';
         }
-        
+
         // Check in common namespaces
         $namespaces = [
-            'KobiLite\\Models\\',
             'App\\Models\\',
             'Models\\',
             ''
         ];
-        
+
         foreach ($namespaces as $ns) {
             $class = $ns . $singular;
             if (class_exists($class)) {
                 return $class;
             }
         }
-        
+
         return null;
     }
 
@@ -160,11 +176,11 @@ abstract class DbContext
     {
         $connection = $this->getConnection();
         $schema = new Schema($connection);
-        
+
         foreach ($this->modelTypes as $propertyName => $modelClass) {
             $this->createTableForModel($schema, $modelClass);
         }
-        
+
         echo "✓ Database ensured\n";
     }
 
@@ -175,7 +191,7 @@ abstract class DbContext
     {
         $connection = $this->getConnection();
         $schema = new Schema($connection);
-        
+
         // Drop in reverse order (for foreign keys)
         foreach (array_reverse($this->modelTypes) as $modelClass) {
             $tableName = $this->getTableName($modelClass);
@@ -201,12 +217,12 @@ abstract class DbContext
     protected function createTableForModel(Schema $schema, string $modelClass): void
     {
         $tableName = $this->getTableName($modelClass);
-        
+
         // Check if table already exists
         if ($schema->hasTable($tableName)) {
             return;
         }
-        
+
         // Check if model has defineSchema method
         if (method_exists($modelClass, 'defineSchema')) {
             $schema->create($tableName, function (TableBuilder $table) use ($modelClass) {
@@ -215,10 +231,10 @@ abstract class DbContext
             echo "✓ Created: {$tableName}\n";
             return;
         }
-        
+
         // Auto-generate from model metadata/attributes
         $metadata = ModelMetadata::for($modelClass);
-        
+
         $schema->create($tableName, function (TableBuilder $table) use ($metadata) {
             foreach ($metadata->columns as $propertyName => $column) {
                 $colName = $column['name'];
@@ -228,7 +244,7 @@ abstract class DbContext
                 $length = $column['length'];
                 $precision = $column['precision'];
                 $scale = $column['scale'];
-                
+
                 // Primary key
                 if ($propertyName === $metadata->primaryKey) {
                     if ($metadata->primaryKeyAutoIncrement) {
@@ -239,24 +255,24 @@ abstract class DbContext
                     }
                     continue;
                 }
-                
+
                 // Determine column type
                 $col = $this->createColumn($table, $colName, $type, $length, $precision, $scale);
-                
+
                 if ($col) {
                     if ($nullable) {
                         $col->nullable();
                     } else {
                         $col->notNull();
                     }
-                    
+
                     if ($default !== null) {
                         $col->default($default);
                     }
                 }
             }
         });
-        
+
         echo "✓ Created: {$tableName}\n";
     }
 
@@ -268,9 +284,9 @@ abstract class DbContext
         if ($type === null) {
             return $table->string($name, $length ?? 255);
         }
-        
+
         $type = strtoupper($type);
-        
+
         switch ($type) {
             case 'INT':
             case 'INTEGER':
@@ -329,7 +345,7 @@ abstract class DbContext
             $prop->setAccessible(true);
             return $prop->getValue();
         }
-        
+
         // Check for Table attribute
         $reflection = new ReflectionClass($modelClass);
         $tableAttrs = $reflection->getAttributes(Table::class);
@@ -337,7 +353,7 @@ abstract class DbContext
             $table = $tableAttrs[0]->newInstance();
             return $table->name;
         }
-        
+
         // Generate from class name
         $shortName = $reflection->getShortName();
         return 'tbl' . $shortName . 's';

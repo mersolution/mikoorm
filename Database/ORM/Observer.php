@@ -2,7 +2,7 @@
 /**
  * MIT License
  * Copyright (c) 2026 Mersolution Technology Ltd.
- * 
+ *
  * Observer - Model observer pattern for watching model events
  * Similar to mersolutionCore MersoObserver.cs
  */
@@ -11,7 +11,7 @@ namespace Miko\Database\ORM;
 
 /**
  * Base Observer class
- * 
+ *
  * Usage:
  * class UserObserver extends Observer {
  *     public function creating(Model $model): void { }
@@ -23,7 +23,7 @@ namespace Miko\Database\ORM;
  *     public function saving(Model $model): void { }
  *     public function saved(Model $model): void { }
  * }
- * 
+ *
  * // Register observer
  * User::observe(UserObserver::class);
  */
@@ -160,7 +160,7 @@ class ObserverManager
 
     /**
      * Fire an event on all observers
-     * 
+     *
      * @return bool False if any observer returns false (for "before" events)
      */
     public static function fire(string $modelClass, string $event, Model $model): bool
@@ -170,7 +170,7 @@ class ObserverManager
         foreach ($observers as $observer) {
             if (method_exists($observer, $event)) {
                 $result = $observer->$event($model);
-                
+
                 // For "before" events, if observer returns false, stop
                 if ($result === false) {
                     return false;

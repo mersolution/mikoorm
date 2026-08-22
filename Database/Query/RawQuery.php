@@ -15,7 +15,7 @@ use Miko\Database\Exceptions\DatabaseException;
 
 /**
  * Raw SQL query executor - replaces SQLRaw
- * 
+ *
  * Features:
  * - Named parameters
  * - Prepared statements
@@ -94,7 +94,7 @@ class RawQuery
     public function first(): ?array
     {
         $results = $this->get();
-        
+
         if ($this->isSelectQuery()) {
             return $results[0] ?? null;
         }
@@ -196,7 +196,7 @@ class RawQuery
     public static function make(ConnectionInterface $connection, string $sql = ''): self
     {
         $instance = new self($connection);
-        
+
         if ($sql) {
             $instance->query($sql);
         }

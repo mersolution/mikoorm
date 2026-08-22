@@ -10,6 +10,8 @@
 
 namespace Miko\Database;
 
+use Miko\Core\Config;
+use Miko\Database\ConnectionPool\ConnectionPool;
 use Miko\Database\ConnectionPool\ConnectionPoolInterface;
 use Miko\Database\Exceptions\DatabaseException;
 
@@ -21,6 +23,8 @@ class DatabaseManager implements DatabaseInterface
     private ConnectionPoolInterface $pool;
     private array $queryLog = [];
     private bool $loggingEnabled = false;
+    /** @var array<string, ConnectionInterface> */
+    private array $pinned = [];
 
     public function __construct(ConnectionPoolInterface $pool)
     {
@@ -28,11 +32,58 @@ class DatabaseManager implements DatabaseInterface
     }
 
     /**
+     * Build a manager from Config/Database.php (or an explicit config array).
+     */
+    public static function fromConfig(?array $config = null): self
+    {
+        if ($config === null) {
+            $config = Config::get('database');
+            if (!is_array($config)) {
+                $config = Config::get('Database');
+            }
+        }
+
+        if (!is_array($config) || empty($config['connections']) || !is_array($config['connections'])) {
+            throw new DatabaseException(
+                'Database pool requires a connections array. Call Config::load() or pass config to DatabaseManager::fromConfig().'
+            );
+        }
+
+        return new self(new ConnectionPool($config));
+    }
+
+    /**
      * @inheritDoc
      */
     public function connection(?string $name = null): ConnectionInterface
     {
-        return $this->pool->getConnection($name ?? 'default');
+        $name = $name ?? 'default';
+
+        if (!isset($this->pinned[$name])) {
+            $this->pinned[$name] = $this->pool->getConnection($name);
+        }
+
+        return $this->pinned[$name];
+    }
+
+    /**
+     * Return pinned connections to the pool.
+     */
+    public function release(?string $name = null): void
+    {
+        if ($name === null) {
+            foreach (array_keys($this->pinned) as $key) {
+                $this->release($key);
+            }
+            return;
+        }
+
+        if (!isset($this->pinned[$name])) {
+            return;
+        }
+
+        $this->pool->releaseConnection($this->pinned[$name]);
+        unset($this->pinned[$name]);
     }
 
     /**
@@ -65,7 +116,7 @@ class DatabaseManager implements DatabaseInterface
     public function transaction(callable $callback, ?string $connection = null): mixed
     {
         $conn = $this->connection($connection);
-        
+
         $conn->beginTransaction();
 
         try {
@@ -140,5 +191,10 @@ class DatabaseManager implements DatabaseInterface
     public function getPool(): ConnectionPoolInterface
     {
         return $this->pool;
+    }
+
+    public function __destruct()
+    {
+        $this->release();
     }
 }

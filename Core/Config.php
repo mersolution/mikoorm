@@ -29,10 +29,14 @@ class Config
 
         // Load all config files
         $files = glob($configPath . '/*.php');
-        
+
         foreach ($files as $file) {
             $key = basename($file, '.php');
             self::$items[$key] = require $file;
+            $lower = strtolower($key);
+            if ($lower !== $key && !isset(self::$items[$lower])) {
+                self::$items[$lower] = &self::$items[$key];
+            }
         }
 
         self::$loaded = true;
@@ -40,7 +44,7 @@ class Config
 
     /**
      * Get configuration value
-     * 
+     *
      * @param string $key Dot notation key (e.g., 'database.default')
      * @param mixed $default Default value if not found
      * @return mixed
@@ -70,11 +74,11 @@ class Config
 
         while (count($keys) > 1) {
             $key = array_shift($keys);
-            
+
             if (!isset($config[$key]) || !is_array($config[$key])) {
                 $config[$key] = [];
             }
-            
+
             $config = &$config[$key];
         }
 
@@ -129,14 +133,16 @@ class Config
     private static function loadEnv(): void
     {
         self::$envCache = [];
-        
-        // Try multiple possible locations
+
+        // Önce kobi3 kök `.env` (localhost / gizli anahtar; repoda olmayabilir), sonra gömülü Config.env.
+        // Aksi halde Env/Config.env her zaman var olduğu için kobi3/.env hiç okunmazdı.
+        $kobi3Root = dirname(__DIR__, 3);
         $possiblePaths = [
-            __DIR__ . '/../../../Env/Config.env',
-            __DIR__ . '/../../.env',
-            __DIR__ . '/../../../.env',
+            $kobi3Root . DIRECTORY_SEPARATOR . '.env',
+            $kobi3Root . DIRECTORY_SEPARATOR . 'Env' . DIRECTORY_SEPARATOR . 'Config.env',
+            dirname(__DIR__, 2) . DIRECTORY_SEPARATOR . '.env',
         ];
-        
+
         $envFile = null;
         foreach ($possiblePaths as $path) {
             if (file_exists($path)) {
@@ -144,29 +150,29 @@ class Config
                 break;
             }
         }
-        
+
         if ($envFile === null) {
             return;
         }
-        
+
         $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        
+
         foreach ($lines as $line) {
             // Skip comments
             $line = trim($line);
             if (empty($line) || $line[0] === '#') {
                 continue;
             }
-            
+
             // Parse KEY=VALUE
             $pos = strpos($line, '=');
             if ($pos === false) {
                 continue;
             }
-            
+
             $name = trim(substr($line, 0, $pos));
             $value = trim(substr($line, $pos + 1));
-            
+
             // Remove quotes
             if (strlen($value) >= 2) {
                 $first = $value[0];
@@ -175,7 +181,7 @@ class Config
                     $value = substr($value, 1, -1);
                 }
             }
-            
+
             // Handle special values
             $value = match(strtolower($value)) {
                 'true', '(true)' => true,
@@ -184,7 +190,7 @@ class Config
                 'empty', '(empty)' => '',
                 default => $value
             };
-            
+
             self::$envCache[$name] = $value;
         }
     }

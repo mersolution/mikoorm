@@ -44,7 +44,7 @@ class StringHelper
 
     /**
      * SEO uyumlu URL oluştur (Türkçe karakterleri ASCII'ye çevirir)
-     * 
+     *
      * @param string $text
      * @param string $separator
      * @return string
@@ -52,18 +52,18 @@ class StringHelper
     public static function seoSlug(string $text, string $separator = '-'): string
     {
         $text = mb_strtolower($text);
-        
+
         // Türkçe karakterleri ASCII'ye çevir
         $turkish = ['ç', 'ğ', 'ı', 'ö', 'ş', 'ü', 'Ç', 'Ğ', 'İ', 'Ö', 'Ş', 'Ü'];
         $ascii = ['c', 'g', 'i', 'o', 's', 'u', 'c', 'g', 'i', 'o', 's', 'u'];
         $text = str_replace($turkish, $ascii, $text);
-        
+
         // Alfanumerik olmayan karakterleri kaldır
         $text = preg_replace('/[^a-z0-9\s-]/', '', $text);
-        
+
         // Boşlukları ve çoklu tire'leri tek tire yap
         $text = preg_replace('/[\s-]+/', $separator, $text);
-        
+
         return trim($text, $separator);
     }
 

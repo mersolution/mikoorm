@@ -35,7 +35,7 @@ class Schema
     {
         $builder = new TableBuilder($tableName);
         $callback($builder);
-        
+
         $sql = $builder->build();
         $this->pdo->exec($sql);
 
@@ -101,20 +101,20 @@ class Schema
     public function addColumn(string $tableName, string $columnName, string $type, array $options = []): void
     {
         $sql = "ALTER TABLE `{$tableName}` ADD COLUMN `{$columnName}` {$type}";
-        
+
         if (!($options['nullable'] ?? true)) {
             $sql .= ' NOT NULL';
         }
-        
+
         if (isset($options['default'])) {
             $default = is_string($options['default']) ? "'{$options['default']}'" : $options['default'];
             $sql .= " DEFAULT {$default}";
         }
-        
+
         if (isset($options['after'])) {
             $sql .= " AFTER `{$options['after']}`";
         }
-        
+
         $this->pdo->exec($sql);
     }
 
@@ -140,16 +140,16 @@ class Schema
     public function modifyColumn(string $tableName, string $columnName, string $type, array $options = []): void
     {
         $sql = "ALTER TABLE `{$tableName}` MODIFY COLUMN `{$columnName}` {$type}";
-        
+
         if (!($options['nullable'] ?? true)) {
             $sql .= ' NOT NULL';
         }
-        
+
         if (isset($options['default'])) {
             $default = is_string($options['default']) ? "'{$options['default']}'" : $options['default'];
             $sql .= " DEFAULT {$default}";
         }
-        
+
         $this->pdo->exec($sql);
     }
 

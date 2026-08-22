@@ -2,7 +2,7 @@
 /**
  * MIT License
  * Copyright (c) 2026 Mersolution Technology Ltd.
- * 
+ *
  * BulkOperations - Bulk insert/update operations for performance
  * Similar to mersolutionCore BulkOperations.cs
  */
@@ -13,7 +13,7 @@ use Miko\Database\Connection;
 
 /**
  * Bulk Operations for high-performance database operations
- * 
+ *
  * Usage:
  * BulkOperations::insert(User::class, $users);
  * BulkOperations::update(User::class, $users, 'Id');
@@ -33,7 +33,7 @@ class BulkOperations
 
     /**
      * Bulk insert records
-     * 
+     *
      * @param string $modelClass Model class name
      * @param array $records Array of associative arrays or Model instances
      * @return int Number of inserted records
@@ -50,7 +50,7 @@ class BulkOperations
 
         // Convert models to arrays
         $data = self::normalizeRecords($records);
-        
+
         if (empty($data)) {
             return 0;
         }
@@ -66,7 +66,7 @@ class BulkOperations
             foreach ($chunk as $row) {
                 $rowPlaceholders = array_fill(0, count($columns), '?');
                 $placeholders[] = '(' . implode(', ', $rowPlaceholders) . ')';
-                
+
                 foreach ($columns as $col) {
                     $values[] = $row[$col] ?? null;
                 }
@@ -88,7 +88,7 @@ class BulkOperations
 
     /**
      * Bulk update records
-     * 
+     *
      * @param string $modelClass Model class name
      * @param array $records Array of associative arrays with primary key
      * @param string $keyColumn Primary key column name
@@ -155,7 +155,7 @@ class BulkOperations
 
     /**
      * Bulk upsert (insert or update on duplicate key)
-     * 
+     *
      * @param string $modelClass Model class name
      * @param array $records Array of records
      * @param string|array $uniqueColumns Column(s) to check for duplicates
@@ -172,7 +172,7 @@ class BulkOperations
         $connection = $model->getConnection();
 
         $data = self::normalizeRecords($records);
-        
+
         if (empty($data)) {
             return 0;
         }
@@ -190,7 +190,7 @@ class BulkOperations
             foreach ($chunk as $row) {
                 $rowPlaceholders = array_fill(0, count($columns), '?');
                 $placeholders[] = '(' . implode(', ', $rowPlaceholders) . ')';
-                
+
                 foreach ($columns as $col) {
                     $values[] = $row[$col] ?? null;
                 }
@@ -219,7 +219,7 @@ class BulkOperations
 
     /**
      * Bulk delete records
-     * 
+     *
      * @param string $modelClass Model class name
      * @param array $ids Array of primary key values
      * @param string $keyColumn Primary key column name
@@ -236,7 +236,7 @@ class BulkOperations
         $connection = $model->getConnection();
 
         $placeholders = implode(', ', array_fill(0, count($ids), '?'));
-        
+
         $sql = "DELETE FROM {$table} WHERE {$keyColumn} IN ({$placeholders})";
         $result = $connection->execute($sql, $ids);
 

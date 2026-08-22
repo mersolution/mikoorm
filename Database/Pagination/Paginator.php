@@ -171,4 +171,65 @@ class Paginator
     {
         return json_encode($this->toArray(), JSON_UNESCAPED_UNICODE);
     }
+
+    /**
+     * Paginate a raw SQL query
+     * Automatically wraps the query with COUNT(*) for total and adds LIMIT/OFFSET
+     *
+     * @param \Miko\Database\Query\QueryBuilder $queryBuilder
+     * @param string $sql Raw SQL query (without LIMIT/OFFSET)
+     * @param array $bindings Parameter bindings
+     * @param int $page Current page number (1-based)
+     * @param int $perPage Items per page
+     * @return array Paginated result with data and pagination meta
+     */
+    public static function rawPaginate(
+        \Miko\Database\Query\QueryBuilder $queryBuilder,
+        string $sql,
+        array $bindings,
+        int $page = 1,
+        int $perPage = 50
+    ): array {
+        $page = max(1, $page);
+        $perPage = max(1, min($perPage, 500));
+
+        $countSql = "SELECT COUNT(*) AS aggregate FROM ({$sql}) AS count_table";
+        $countResult = $queryBuilder->rawQuery($countSql, $bindings);
+        $total = (int) ($countResult[0]['aggregate'] ?? 0);
+
+        $lastPage = max(1, (int) ceil($total / $perPage));
+        /* İstenen sayfa toplam sayfayı aşmasın (aksi halde boş data + yanıltıcı current_page) */
+        $page = min($page, $lastPage);
+        $offset = ($page - 1) * $perPage;
+
+        $paginatedSql = $sql . " LIMIT {$perPage} OFFSET {$offset}";
+        $data = $queryBuilder->rawQuery($paginatedSql, $bindings);
+
+        return [
+            'data' => $data,
+            'pagination' => [
+                'current_page' => $page,
+                'last_page' => $lastPage,
+                'per_page' => $perPage,
+                'total' => $total,
+                'from' => $total > 0 ? $offset + 1 : 0,
+                'to' => min($offset + $perPage, $total),
+                'has_more' => $page < $lastPage
+            ]
+        ];
+    }
+
+    /**
+     * Read pagination params from GET request
+     *
+     * @param int $defaultPerPage Default items per page
+     * @param int $maxPerPage Maximum allowed items per page
+     * @return array [page, perPage]
+     */
+    public static function getRequestParams(int $defaultPerPage = 50, int $maxPerPage = 500): array
+    {
+        $page = max(1, (int) ($_GET['page'] ?? 1));
+        $perPage = max(1, min((int) ($_GET['limit'] ?? $defaultPerPage), $maxPerPage));
+        return [$page, $perPage];
+    }
 }

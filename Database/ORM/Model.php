@@ -26,7 +26,7 @@ use Miko\Core\Database\DatabaseConfig;
 
 /**
  * Modern ORM Model base class - replaces old ORM
- * 
+ *
  * Supports Code-First migrations like Entity Framework:
  * - Define schema in defineSchema() method
  * - Call Model::up() to create table
@@ -93,7 +93,7 @@ abstract class Model
 
     /**
      * Attributes that should be cast to native types
-     * 
+     *
      * Supported: 'int', 'integer', 'float', 'double', 'string', 'bool', 'boolean',
      *            'array', 'json', 'object', 'date', 'datetime', 'timestamp'
      */
@@ -138,7 +138,7 @@ abstract class Model
     public function getConnection(): ConnectionInterface
     {
         $class = static::class;
-        
+
         // Önce cache'e bak (model bazlı)
         if (isset(static::$connectionCache[$class])) {
             return static::$connectionCache[$class];
@@ -200,7 +200,7 @@ abstract class Model
     public static function find(mixed $id): ?static
     {
         $instance = new static();
-        
+
         $result = $instance->getConnection()->execute(
             "SELECT * FROM " . static::$table . " WHERE {$instance->primaryKey} = ? LIMIT 1",
             [$id]
@@ -226,7 +226,7 @@ abstract class Model
 
         $instance = new static();
         $placeholders = implode(',', array_fill(0, count($ids), '?'));
-        
+
         $result = $instance->getConnection()->execute(
             "SELECT * FROM " . static::$table . " WHERE {$instance->primaryKey} IN ({$placeholders})",
             $ids
@@ -241,7 +241,7 @@ abstract class Model
     public static function all(): array
     {
         $instance = new static();
-        
+
         $result = $instance->getConnection()->execute(
             "SELECT * FROM " . static::$table
         );
@@ -255,19 +255,19 @@ abstract class Model
     public static function query(): QueryBuilder
     {
         $query = new QueryBuilder(new static());
-        
+
         // Apply global scopes
         static::applyGlobalScopes($query);
-        
+
         return $query;
     }
 
     /**
      * Where clause
      */
-    public static function where(string $column, string $operator, mixed $value): QueryBuilder
+    public static function where(mixed $column, mixed $operatorOrValue = null, mixed $value = null): QueryBuilder
     {
-        return static::query()->where($column, $operator, $value);
+        return static::query()->where(...func_get_args());
     }
 
     /**
@@ -283,9 +283,8 @@ abstract class Model
      */
     public function __call(string $method, array $parameters)
     {
-        // Check if it's a scope method
         $scopeMethod = 'scope' . ucfirst($method);
-        
+
         if (method_exists($this, $scopeMethod)) {
             $query = static::query();
             array_unshift($parameters, $query);
@@ -293,7 +292,7 @@ abstract class Model
             return $query;
         }
 
-        throw new DatabaseException("Method {$method} does not exist on " . static::class);
+        return static::query()->$method(...$parameters);
     }
 
     /**
@@ -326,11 +325,11 @@ abstract class Model
     public static function firstOrFail(): static
     {
         $result = static::first();
-        
+
         if ($result === null) {
             throw new DatabaseException('No records found in ' . static::$table);
         }
-        
+
         return $result;
     }
 
@@ -343,17 +342,17 @@ abstract class Model
         $result = $instance->getConnection()->query(
             "SELECT * FROM " . static::$table . " LIMIT 2"
         );
-        
+
         $rows = $result->all();
-        
+
         if (count($rows) > 1) {
             throw new DatabaseException('More than one record found in ' . static::$table);
         }
-        
+
         if (count($rows) === 0) {
             return null;
         }
-        
+
         return static::hydrate($rows[0]);
     }
 
@@ -363,11 +362,11 @@ abstract class Model
     public static function singleOrFail(): static
     {
         $result = static::single();
-        
+
         if ($result === null) {
             throw new DatabaseException('No records found in ' . static::$table);
         }
-        
+
         return $result;
     }
 
@@ -385,11 +384,11 @@ abstract class Model
     public static function findOrFail(mixed $id): static
     {
         $result = static::find($id);
-        
+
         if ($result === null) {
             throw new DatabaseException("No record found with ID {$id} in " . static::$table);
         }
-        
+
         return $result;
     }
 
@@ -400,17 +399,17 @@ abstract class Model
     {
         $instance = new static();
         $query = static::query();
-        
+
         foreach ($attributes as $key => $value) {
             $query->where($key, '=', $value);
         }
-        
+
         $result = $query->first();
-        
+
         if ($result !== null) {
             return $result;
         }
-        
+
         return static::create(array_merge($attributes, $values));
     }
 
@@ -420,17 +419,17 @@ abstract class Model
     public static function firstOrNew(array $attributes, array $values = []): static
     {
         $query = static::query();
-        
+
         foreach ($attributes as $key => $value) {
             $query->where($key, '=', $value);
         }
-        
+
         $result = $query->first();
-        
+
         if ($result !== null) {
             return $result;
         }
-        
+
         return new static(array_merge($attributes, $values));
     }
 
@@ -440,19 +439,19 @@ abstract class Model
     public static function updateOrCreate(array $attributes, array $values = []): static
     {
         $query = static::query();
-        
+
         foreach ($attributes as $key => $value) {
             $query->where($key, '=', $value);
         }
-        
+
         $result = $query->first();
-        
+
         if ($result !== null) {
             $result->fill($values);
             $result->save();
             return $result;
         }
-        
+
         return static::create(array_merge($attributes, $values));
     }
 
@@ -489,13 +488,13 @@ abstract class Model
 
         $instance = new static();
         $connection = $instance->getConnection();
-        
+
         $columns = array_keys($records[0]);
         $placeholders = '(' . implode(', ', array_fill(0, count($columns), '?')) . ')';
         $allPlaceholders = implode(', ', array_fill(0, count($records), $placeholders));
-        
+
         $sql = "INSERT INTO " . static::$table . " (" . implode(', ', $columns) . ") VALUES {$allPlaceholders}";
-        
+
         $bindings = [];
         foreach ($records as $record) {
             foreach ($columns as $column) {
@@ -513,18 +512,18 @@ abstract class Model
     public static function destroy(mixed $ids): int
     {
         $ids = is_array($ids) ? $ids : func_get_args();
-        
+
         if (empty($ids)) {
             return 0;
         }
 
         $instance = new static();
         $placeholders = implode(', ', array_fill(0, count($ids), '?'));
-        
+
         $sql = "DELETE FROM " . static::$table . " WHERE {$instance->primaryKey} IN ({$placeholders})";
-        
+
         $instance->getConnection()->execute($sql, $ids);
-        
+
         return count($ids);
     }
 
@@ -606,13 +605,13 @@ abstract class Model
         }
 
         $this->attributes[$column] = ($this->attributes[$column] ?? 0) + $amount;
-        
+
         foreach ($extra as $key => $value) {
             $this->attributes[$key] = $value;
         }
 
         $columns = [$column => $this->attributes[$column]] + $extra;
-        
+
         if ($this->usesTimestamps()) {
             $columns['updated_at'] = date('Y-m-d H:i:s');
             $this->attributes['updated_at'] = $columns['updated_at'];
@@ -626,7 +625,7 @@ abstract class Model
         }
         $bindings[] = $this->getKey();
 
-        $sql = "UPDATE " . static::$table . " SET " . implode(', ', $setClauses) . 
+        $sql = "UPDATE " . static::$table . " SET " . implode(', ', $setClauses) .
                " WHERE {$this->primaryKey} = ?";
 
         $this->getConnection()->execute($sql, $bindings);
@@ -792,9 +791,15 @@ abstract class Model
     /**
      * Check if model is dirty
      */
-    public function isDirty(): bool
+    public function isDirty(?string $key = null): bool
     {
-        return !empty($this->getDirty());
+        $dirty = $this->getDirty();
+
+        if ($key === null) {
+            return !empty($dirty);
+        }
+
+        return array_key_exists($key, $dirty);
     }
 
     /**
@@ -843,12 +848,12 @@ abstract class Model
     {
         $class = static::class;
         $traits = [];
-        
+
         // Get all traits including parent classes
         do {
             $traits = array_merge($traits, class_uses($class) ?: []);
         } while ($class = get_parent_class($class));
-        
+
         foreach ($traits as $trait) {
             $method = 'boot' . (new \ReflectionClass($trait))->getShortName();
             if (method_exists(static::class, $method)) {
@@ -1043,6 +1048,16 @@ abstract class Model
     /**
      * Get a plain attribute (without accessor)
      */
+    public function getAttribute(string $key): mixed
+    {
+        return $this->__get($key);
+    }
+
+    public function setAttribute(string $key, mixed $value): void
+    {
+        $this->__set($key, $value);
+    }
+
     public function getAttributeValue(string $key): mixed
     {
         return $this->attributes[$key] ?? null;
@@ -1221,13 +1236,13 @@ abstract class Model
     public function makeVisible(array|string $attributes): self
     {
         $attributes = is_array($attributes) ? $attributes : [$attributes];
-        
+
         $this->hidden = array_diff($this->hidden, $attributes);
-        
+
         if (!empty($this->visible)) {
             $this->visible = array_merge($this->visible, $attributes);
         }
-        
+
         return $this;
     }
 
@@ -1614,12 +1629,12 @@ abstract class Model
     public function only(array|string $keys): array
     {
         $keys = is_array($keys) ? $keys : func_get_args();
-        
+
         $results = [];
         foreach ($keys as $key) {
             $results[$key] = $this->getAttribute($key);
         }
-        
+
         return $results;
     }
 
@@ -1629,7 +1644,7 @@ abstract class Model
     public function except(array|string $keys): array
     {
         $keys = is_array($keys) ? $keys : func_get_args();
-        
+
         return array_diff_key($this->attributes, array_flip($keys));
     }
 }

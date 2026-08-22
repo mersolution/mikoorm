@@ -13,7 +13,7 @@ namespace Miko\Database\ORM;
 /**
  * MikoSet - Represents a table (Miko entity set)
  * Similar to Entity Framework DbSet / mersolutionCore MerSet
- * 
+ *
  * Usage:
  *   public MikoSet $Users;  // Will be auto-initialized with User::class
  */
@@ -69,12 +69,9 @@ class MikoSet
     /**
      * Where clause
      */
-    public function where(string $column, mixed $operatorOrValue, mixed $value = null): QueryBuilder
+    public function where(mixed $column, mixed $operatorOrValue = null, mixed $value = null): QueryBuilder
     {
-        if ($value === null) {
-            return $this->modelClass::where($column, '=', $operatorOrValue);
-        }
-        return $this->modelClass::where($column, $operatorOrValue, $value);
+        return $this->modelClass::query()->where(...func_get_args());
     }
 
     /**
@@ -124,5 +121,10 @@ class MikoSet
     public function getModelClass(): string
     {
         return $this->modelClass;
+    }
+
+    public function __call(string $method, array $parameters)
+    {
+        return $this->query()->$method(...$parameters);
     }
 }

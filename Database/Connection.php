@@ -11,7 +11,7 @@
 namespace Miko\Database;
 
 use Miko\Database\Exceptions\DatabaseException;
-use Miko\Entities\Log\Logger;
+use Miko\Log\Logger;
 use PDO;
 use PDOException;
 
@@ -51,10 +51,66 @@ class Connection implements ConnectionInterface
                 'sql' => $sql,
                 'error_code' => $e->getCode()
             ]);
-            
+
             throw (new DatabaseException("Failed to prepare statement: " . $e->getMessage(), 0, $e))
                 ->setSql($sql);
         }
+    }
+
+    /**
+     * PDO native prepares reject duplicate named placeholders (HY093).
+     * Expand each repeated :name to :name__dupN with the same bound value.
+     *
+     * @return array{0: string, 1: array}
+     */
+    private function expandNamedParameters(string $sql, array $params): array
+    {
+        $usesNamed = false;
+        foreach (array_keys($params) as $key) {
+            if (is_string($key) && $key !== '' && $key[0] === ':') {
+                $usesNamed = true;
+                break;
+            }
+        }
+
+        if (!$usesNamed) {
+            return [$sql, $params];
+        }
+
+        $expandedParams = [];
+        $occurrences = [];
+
+        $newSql = preg_replace_callback(
+            '/:([a-zA-Z_][a-zA-Z0-9_]*)\b/',
+            static function (array $matches) use ($params, &$expandedParams, &$occurrences): string {
+                $name = ':' . $matches[1];
+                if (!array_key_exists($name, $params)) {
+                    return $name;
+                }
+
+                $count = $occurrences[$name] ?? 0;
+                $occurrences[$name] = $count + 1;
+
+                if ($count === 0) {
+                    $expandedParams[$name] = $params[$name];
+                    return $name;
+                }
+
+                $uniqueName = $name . '__dup' . $count;
+                $expandedParams[$uniqueName] = $params[$name];
+
+                return $uniqueName;
+            },
+            $sql
+        );
+
+        foreach ($params as $key => $value) {
+            if (is_string($key) && $key !== '' && $key[0] === ':' && !array_key_exists($key, $expandedParams)) {
+                $expandedParams[$key] = $value;
+            }
+        }
+
+        return [$newSql, $expandedParams];
     }
 
     /**
@@ -63,8 +119,9 @@ class Connection implements ConnectionInterface
     public function execute(string $sql, array $params = []): ResultInterface
     {
         try {
+            [$sql, $params] = $this->expandNamedParameters($sql, $params);
             $stmt = $this->prepare($sql);
-            
+
             foreach ($params as $key => $value) {
                 if (is_int($key)) {
                     $stmt->bindValue($key + 1, $value);
@@ -72,13 +129,13 @@ class Connection implements ConnectionInterface
                     $stmt->bindValue($key, $value);
                 }
             }
-            
+
             $stmt->execute();
-            
+
             return new Result($stmt);
         } catch (PDOException $e) {
             Logger::logQuery($sql, $params, $e->getMessage());
-            
+
             throw (new DatabaseException("Failed to execute query: " . $e->getMessage(), 0, $e))
                 ->setSql($sql)
                 ->setBindings($params);
@@ -96,7 +153,7 @@ class Connection implements ConnectionInterface
             Logger::connection("Failed to begin transaction: " . $e->getMessage(), [
                 'error_code' => $e->getCode()
             ]);
-            
+
             throw new DatabaseException("Failed to begin transaction: " . $e->getMessage(), 0, $e);
         }
     }
@@ -112,7 +169,7 @@ class Connection implements ConnectionInterface
             Logger::connection("Failed to commit transaction: " . $e->getMessage(), [
                 'error_code' => $e->getCode()
             ]);
-            
+
             throw new DatabaseException("Failed to commit transaction: " . $e->getMessage(), 0, $e);
         }
     }
@@ -128,7 +185,7 @@ class Connection implements ConnectionInterface
             Logger::connection("Failed to rollback transaction: " . $e->getMessage(), [
                 'error_code' => $e->getCode()
             ]);
-            
+
             throw new DatabaseException("Failed to rollback transaction: " . $e->getMessage(), 0, $e);
         }
     }
@@ -165,7 +222,7 @@ class Connection implements ConnectionInterface
     public function reconnect(): void
     {
         $this->disconnect();
-        
+
         // Recreate PDO connection
         $dsn = sprintf(
             '%s:host=%s;port=%s;dbname=%s;charset=%s',
@@ -307,7 +364,7 @@ class Connection implements ConnectionInterface
 
     /**
      * Execute SQL and stream results row by row (memory-efficient for large datasets)
-     * 
+     *
      * @param string $sql SQL query
      * @param array $params Query parameters
      * @param callable $callback Function to call for each row
@@ -316,7 +373,7 @@ class Connection implements ConnectionInterface
     {
         try {
             $stmt = $this->pdo->prepare($sql);
-            
+
             foreach ($params as $key => $value) {
                 if (is_int($key)) {
                     $stmt->bindValue($key + 1, $value);
@@ -324,15 +381,15 @@ class Connection implements ConnectionInterface
                     $stmt->bindValue($key, $value);
                 }
             }
-            
+
             $stmt->execute();
-            
+
             while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                 if ($callback($row) === false) {
                     break;
                 }
             }
-            
+
             $stmt->closeCursor();
         } catch (PDOException $e) {
             throw (new DatabaseException("Failed to stream query: " . $e->getMessage(), 0, $e))
@@ -343,7 +400,7 @@ class Connection implements ConnectionInterface
 
     /**
      * Execute SQL and yield results as generator (lazy loading)
-     * 
+     *
      * @param string $sql SQL query
      * @param array $params Query parameters
      * @return \Generator
@@ -352,7 +409,7 @@ class Connection implements ConnectionInterface
     {
         try {
             $stmt = $this->pdo->prepare($sql);
-            
+
             foreach ($params as $key => $value) {
                 if (is_int($key)) {
                     $stmt->bindValue($key + 1, $value);
@@ -360,13 +417,13 @@ class Connection implements ConnectionInterface
                     $stmt->bindValue($key, $value);
                 }
             }
-            
+
             $stmt->execute();
-            
+
             while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                 yield $row;
             }
-            
+
             $stmt->closeCursor();
         } catch (PDOException $e) {
             throw (new DatabaseException("Failed to cursor query: " . $e->getMessage(), 0, $e))
@@ -381,7 +438,7 @@ class Connection implements ConnectionInterface
 
     /**
      * Execute SQL with pagination
-     * 
+     *
      * @param string $sql Base SQL query (without LIMIT/OFFSET)
      * @param array $params Query parameters
      * @param int $page Page number (1-based)
@@ -393,14 +450,14 @@ class Connection implements ConnectionInterface
         // Get total count
         $countSql = "SELECT COUNT(*) as total FROM ({$sql}) as count_query";
         $total = $this->toIntScalar($countSql, $params);
-        
+
         // Calculate offset
         $offset = ($page - 1) * $perPage;
-        
+
         // Get paginated data
         $pagedSql = "{$sql} LIMIT {$perPage} OFFSET {$offset}";
         $data = $this->execute($pagedSql, $params)->all();
-        
+
         return [
             'data' => $data,
             'total' => $total,
@@ -418,7 +475,7 @@ class Connection implements ConnectionInterface
 
     /**
      * Check if record exists
-     * 
+     *
      * @param string $table Table name
      * @param string $column Column name
      * @param mixed $value Value to search
@@ -432,7 +489,7 @@ class Connection implements ConnectionInterface
 
     /**
      * Find record or return null
-     * 
+     *
      * @param string $table Table name
      * @param string $column Column name
      * @param mixed $value Value to search
@@ -446,7 +503,7 @@ class Connection implements ConnectionInterface
 
     /**
      * Get last primary key value
-     * 
+     *
      * @param string $table Table name
      * @param string $column Primary key column name
      * @return int
@@ -459,7 +516,7 @@ class Connection implements ConnectionInterface
 
     /**
      * Get table row count
-     * 
+     *
      * @param string $table Table name
      * @param string|null $where Optional WHERE clause
      * @return int

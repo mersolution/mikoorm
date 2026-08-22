@@ -12,7 +12,9 @@ namespace Miko\Database\ConnectionPool;
 
 use Miko\Database\Connection;
 use Miko\Database\ConnectionInterface;
+use Miko\Database\Drivers\DriverFactory;
 use Miko\Database\Exceptions\DatabaseException;
+use PDO;
 
 /**
  * Connection pool implementation
@@ -34,34 +36,24 @@ class ConnectionPool implements ConnectionPoolInterface
      */
     public function getConnection(string $name = 'default'): ConnectionInterface
     {
-        $poolConfig = $this->config['connections'][$name] ?? null;
-        
-        if ($poolConfig === null) {
-            throw new DatabaseException("Connection configuration not found: {$name}");
-        }
+        $key = $this->resolveName($name);
+        $poolConfig = $this->connectionConfig($name);
 
-        // Check if we have idle connections
-        if (!empty($this->idleConnections[$name])) {
-            $connection = array_shift($this->idleConnections[$name]);
-            
-            // Return connection directly - let it fail on actual query if dead
-            // This avoids unnecessary SELECT 1 on every connection fetch
-            $this->activeConnections[$name][] = $connection;
+        if (!empty($this->idleConnections[$key])) {
+            $connection = array_shift($this->idleConnections[$key]);
+            $this->activeConnections[$key][] = $connection;
             return $connection;
         }
 
-        // Check max connections limit
-        $maxConnections = $poolConfig['pool']['max'] ?? 10;
-        $currentCount = $this->getActiveCount() + $this->getIdleCount();
-        
+        $maxConnections = (int) ($poolConfig['pool']['max'] ?? $this->config['pool']['max'] ?? 10);
+        $currentCount = count($this->activeConnections[$key] ?? []) + count($this->idleConnections[$key] ?? []);
+
         if ($currentCount >= $maxConnections) {
-            // Wait for a connection to become available or throw exception
             throw new DatabaseException("Connection pool limit reached: {$maxConnections}");
         }
 
-        // Create new connection
         $connection = $this->createConnection($poolConfig);
-        $this->activeConnections[$name][] = $connection;
+        $this->activeConnections[$key][] = $connection;
 
         return $connection;
     }
@@ -77,14 +69,14 @@ class ConnectionPool implements ConnectionPoolInterface
             if ($key !== false) {
                 unset($connections[$key]);
                 $connections = array_values($connections);
-                
+
                 // Add to idle connections directly (skip isConnected check for performance)
                 // Dead connections will be detected on next use or during pruning
                 if (!isset($this->idleConnections[$name])) {
                     $this->idleConnections[$name] = [];
                 }
                 $this->idleConnections[$name][] = $connection;
-                
+
                 return;
             }
         }
@@ -169,52 +161,102 @@ class ConnectionPool implements ConnectionPoolInterface
 
     /**
      * Create a new database connection
-     *
-     * @param array $config
-     * @return ConnectionInterface
      */
     private function createConnection(array $config): ConnectionInterface
     {
-        $dsn = sprintf(
-            '%s:host=%s;port=%s;dbname=%s;charset=%s',
-            $config['driver'] ?? 'mysql',
-            $config['host'] ?? '127.0.0.1',
-            $config['port'] ?? 3306,
-            $config['database'] ?? '',
-            $config['charset'] ?? 'utf8mb4'
-        );
+        $driverName = strtolower((string) ($config['driver'] ?? 'mysql'));
+        $driver = DriverFactory::create($driverName);
+        $options = $driver->getOptions();
 
-        $options = [
-            \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
-            \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
-            \PDO::ATTR_EMULATE_PREPARES => false,
-        ];
-
-        // Add persistent connection if configured
-        if (isset($config['persistent']) && $config['persistent']) {
-            $options[\PDO::ATTR_PERSISTENT] = true;
+        if (!empty($config['options']) && is_array($config['options'])) {
+            $options = $config['options'] + $options;
         }
 
-        $pdo = new \PDO(
-            $dsn,
-            $config['username'] ?? '',
-            $config['password'] ?? '',
+        $persistent = $config['persistent'] ?? false;
+        if (is_string($persistent)) {
+            $persistent = !in_array(strtolower($persistent), ['', '0', 'false', 'no', 'off'], true);
+        }
+        if ($persistent && $driverName !== 'sqlite') {
+            $options[PDO::ATTR_PERSISTENT] = true;
+        }
+
+        $pdo = new PDO(
+            $driver->getDsn($config),
+            $config['username'] ?? null,
+            $config['password'] ?? null,
             $options
         );
 
-        // Set charset and collation
-        $charset = $config['charset'] ?? 'utf8mb4';
-        if (isset($config['collation'])) {
-            $pdo->exec("SET NAMES '{$charset}' COLLATE '{$config['collation']}'");
-        } else {
-            $pdo->exec("SET NAMES '{$charset}'");
-        }
-
-        // Set locale and session timeouts
-        @$pdo->exec("SET lc_time_names = 'tr_TR'");
-        $pdo->exec("SET SESSION wait_timeout = 28800");
-        $pdo->exec("SET SESSION interactive_timeout = 28800");
+        $this->configureSession($pdo, $driverName, $config);
 
         return new Connection($pdo, $config);
+    }
+
+    private function resolveName(string $name): string
+    {
+        if ($name === 'default') {
+            $default = $this->config['default'] ?? 'mysql';
+            return is_string($default) && $default !== '' ? $default : 'mysql';
+        }
+
+        return $name;
+    }
+
+    private function connectionConfig(string $name): array
+    {
+        $resolved = $this->resolveName($name);
+        $poolConfig = $this->config['connections'][$resolved]
+            ?? $this->config['connections'][$name]
+            ?? null;
+
+        if (!is_array($poolConfig)) {
+            throw new DatabaseException("Connection configuration not found: {$name}");
+        }
+
+        if (!isset($poolConfig['pool']) && isset($this->config['pool']) && is_array($this->config['pool'])) {
+            $poolConfig['pool'] = $this->config['pool'];
+        }
+
+        if (!array_key_exists('persistent', $poolConfig) && isset($this->config['session']['persistent'])) {
+            $poolConfig['persistent'] = $this->config['session']['persistent'];
+        }
+
+        return $poolConfig;
+    }
+
+    private function configureSession(PDO $pdo, string $driverName, array $config): void
+    {
+        if ($driverName === 'mysql') {
+            $charset = $this->safeIdent($config['charset'] ?? 'utf8mb4');
+            if (isset($config['collation'])) {
+                $collation = $this->safeIdent((string) $config['collation']);
+                $pdo->exec("SET NAMES '{$charset}' COLLATE '{$collation}'");
+            } else {
+                $pdo->exec("SET NAMES '{$charset}'");
+            }
+
+            $wait = (int) ($config['wait_timeout'] ?? $this->config['session']['wait_timeout'] ?? 28800);
+            $interactive = (int) ($config['interactive_timeout'] ?? $this->config['session']['interactive_timeout'] ?? 28800);
+            $pdo->exec("SET SESSION wait_timeout = {$wait}");
+            $pdo->exec("SET SESSION interactive_timeout = {$interactive}");
+            @$pdo->exec("SET lc_time_names = 'tr_TR'");
+            return;
+        }
+
+        if ($driverName === 'pgsql') {
+            $schema = $config['schema'] ?? null;
+            if (is_string($schema) && $schema !== '' && preg_match('/^[A-Za-z0-9_]+$/', $schema)) {
+                $pdo->exec('SET search_path TO ' . $schema);
+            }
+        }
+    }
+
+    private function safeIdent(string $value): string
+    {
+        if (!preg_match('/^[A-Za-z0-9_]+$/', $value)) {
+            throw new DatabaseException('Invalid identifier in database config.');
+        }
+
+        return $value;
     }
 }

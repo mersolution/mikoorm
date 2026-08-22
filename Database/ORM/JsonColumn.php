@@ -2,7 +2,7 @@
 /**
  * MIT License
  * Copyright (c) 2026 Mersolution Technology Ltd.
- * 
+ *
  * JsonColumn - JSON column support for models
  * Similar to mersolutionCore JsonColumn.cs
  */
@@ -11,14 +11,14 @@ namespace Miko\Database\ORM;
 
 /**
  * JSON Column trait for models with JSON columns
- * 
+ *
  * Usage:
  * class User extends Model {
  *     use JsonColumnTrait;
- *     
+ *
  *     protected array $jsonColumns = ['settings', 'metadata'];
  * }
- * 
+ *
  * $user->setJson('settings', ['theme' => 'dark']);
  * $theme = $user->getJson('settings', 'theme');
  * $user->appendJson('settings', 'notifications', true);
@@ -27,7 +27,7 @@ trait JsonColumnTrait
 {
     /**
      * Get JSON column value
-     * 
+     *
      * @param string $column Column name
      * @param string|null $key Dot notation key (optional)
      * @param mixed $default Default value
@@ -36,7 +36,7 @@ trait JsonColumnTrait
     public function getJson(string $column, ?string $key = null, mixed $default = null): mixed
     {
         $value = $this->getAttribute($column);
-        
+
         if ($value === null) {
             return $default;
         }
@@ -61,7 +61,7 @@ trait JsonColumnTrait
 
     /**
      * Set JSON column value
-     * 
+     *
      * @param string $column Column name
      * @param array|string $keyOrValue Key (with value) or full array
      * @param mixed $value Value (if key provided)
@@ -77,17 +77,17 @@ trait JsonColumnTrait
 
         // Get existing value
         $existing = $this->getJson($column) ?? [];
-        
+
         // Set nested value
         $this->setNestedValue($existing, $keyOrValue, $value);
-        
+
         $this->setAttribute($column, json_encode($existing, JSON_UNESCAPED_UNICODE));
         return $this;
     }
 
     /**
      * Append value to JSON array
-     * 
+     *
      * @param string $column Column name
      * @param string $key Dot notation key
      * @param mixed $value Value to append
@@ -96,19 +96,19 @@ trait JsonColumnTrait
     public function appendJson(string $column, string $key, mixed $value): static
     {
         $existing = $this->getJson($column, $key) ?? [];
-        
+
         if (!is_array($existing)) {
             $existing = [$existing];
         }
-        
+
         $existing[] = $value;
-        
+
         return $this->setJson($column, $key, $existing);
     }
 
     /**
      * Remove key from JSON column
-     * 
+     *
      * @param string $column Column name
      * @param string $key Dot notation key
      * @return static
@@ -116,16 +116,16 @@ trait JsonColumnTrait
     public function removeJson(string $column, string $key): static
     {
         $existing = $this->getJson($column) ?? [];
-        
+
         $this->removeNestedValue($existing, $key);
-        
+
         $this->setAttribute($column, json_encode($existing, JSON_UNESCAPED_UNICODE));
         return $this;
     }
 
     /**
      * Check if JSON key exists
-     * 
+     *
      * @param string $column Column name
      * @param string $key Dot notation key
      * @return bool
@@ -241,7 +241,7 @@ class JsonColumn
     {
         $arr1 = self::decode($json1) ?? [];
         $arr2 = self::decode($json2) ?? [];
-        
+
         return self::encode(array_merge_recursive($arr1, $arr2));
     }
 
@@ -251,7 +251,7 @@ class JsonColumn
     public static function get(string $json, string $key, mixed $default = null): mixed
     {
         $array = self::decode($json);
-        
+
         if ($array === null) {
             return $default;
         }
@@ -275,7 +275,7 @@ class JsonColumn
     public static function set(string $json, string $key, mixed $value): string
     {
         $array = self::decode($json) ?? [];
-        
+
         $keys = explode('.', $key);
         $current = &$array;
 

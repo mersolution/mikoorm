@@ -12,7 +12,7 @@ namespace Miko\Database\Monitor;
 
 /**
  * Connection Statistics Monitor
- * 
+ *
  * Tracks database connection metrics and performance statistics
  */
 class ConnectionStats
@@ -118,7 +118,7 @@ class ConnectionStats
         }
 
         $elapsed = microtime(true) - self::$stats['last_connection_time'];
-        
+
         if ($elapsed <= 0) {
             return 0.0;
         }

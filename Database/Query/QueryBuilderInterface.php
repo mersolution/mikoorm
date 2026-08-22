@@ -61,24 +61,24 @@ interface QueryBuilderInterface
     public function rightJoin(string $table, string $condition): self;
 
     /**
-     * Add a where clause
+     * Add a where clause. Pass a Closure for a grouped AND ( ... ) condition.
      *
-     * @param string $column
-     * @param string $operator
+     * @param mixed $column Column name or Closure
+     * @param mixed $operator
      * @param mixed $value
      * @return self
      */
-    public function where(string $column, string $operator, mixed $value): self;
+    public function where(mixed $column, mixed $operator = '=', mixed $value = null): self;
 
     /**
-     * Add an OR where clause
+     * Add an OR where clause. Pass a Closure for a grouped OR ( ... ) condition.
      *
-     * @param string $column
-     * @param string $operator
+     * @param mixed $column Column name or Closure
+     * @param mixed $operator
      * @param mixed $value
      * @return self
      */
-    public function orWhere(string $column, string $operator, mixed $value): self;
+    public function orWhere(mixed $column, mixed $operator = '=', mixed $value = null): self;
 
     /**
      * Add a where IN clause

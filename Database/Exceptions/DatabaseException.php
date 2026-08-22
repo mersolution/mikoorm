@@ -81,11 +81,11 @@ class DatabaseException extends FrameworkException
     public function toArray(bool $includeTrace = false): array
     {
         $data = parent::toArray($includeTrace);
-        
+
         if ($this->sql !== null) {
             $data['sql'] = $this->sql;
         }
-        
+
         if (!empty($this->bindings)) {
             $data['bindings'] = $this->bindings;
         }

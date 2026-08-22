@@ -2,12 +2,14 @@
 /**
  * MIT License
  * Copyright (c) 2026 Mersolution Technology Ltd.
- * 
+ *
  * Crypto Library - Encryption, Hashing, and Security utilities
  * Similar to mersolutionCore Crypto.cs
  */
 
 namespace Miko\Library;
+
+use Miko\Core\Config;
 
 class Crypto
 {
@@ -31,9 +33,8 @@ class Crypto
             return self::$encryptionKey;
         }
 
-        // Try to get from config
         if (class_exists('\Miko\Core\Config')) {
-            $key = \Miko\Core\Config::env('APP_KEY', '');
+            $key = Config::env('APP_KEY', '');
             if (!empty($key)) {
                 return $key;
             }
@@ -121,10 +122,10 @@ class Crypto
     {
         $key = $key ?? self::getKey();
         $key = self::deriveKey($key);
-        
+
         $iv = random_bytes(openssl_cipher_iv_length(self::$defaultCipher));
         $encrypted = openssl_encrypt($data, self::$defaultCipher, $key, OPENSSL_RAW_DATA, $iv);
-        
+
         if ($encrypted === false) {
             throw new \RuntimeException('Encryption failed');
         }
@@ -140,7 +141,7 @@ class Crypto
     {
         $key = $key ?? self::getKey();
         $key = self::deriveKey($key);
-        
+
         $data = base64_decode($data);
         if ($data === false) {
             throw new \RuntimeException('Invalid encrypted data');
@@ -151,7 +152,7 @@ class Crypto
         $encrypted = substr($data, $ivLength);
 
         $decrypted = openssl_decrypt($encrypted, self::$defaultCipher, $key, OPENSSL_RAW_DATA, $iv);
-        
+
         if ($decrypted === false) {
             throw new \RuntimeException('Decryption failed');
         }
@@ -195,11 +196,11 @@ class Crypto
         $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
         $result = '';
         $max = strlen($chars) - 1;
-        
+
         for ($i = 0; $i < $length; $i++) {
             $result .= $chars[random_int(0, $max)];
         }
-        
+
         return $result;
     }
 
@@ -209,12 +210,12 @@ class Crypto
     public static function uuid(): string
     {
         $data = random_bytes(16);
-        
+
         // Set version to 0100
         $data[6] = chr(ord($data[6]) & 0x0f | 0x40);
         // Set bits 6-7 to 10
         $data[8] = chr(ord($data[8]) & 0x3f | 0x80);
-        
+
         return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
     }
 
@@ -310,9 +311,15 @@ class Crypto
 
     /**
      * Timing-safe string comparison
+     * PHP 8+: hash_equals farklı uzunlukta ValueError fırlatır; önce uzunluk kontrolü gerekir.
      */
     public static function equals(string $known, string $user): bool
     {
+        if (strlen($known) !== strlen($user))
+        {
+            return false;
+        }
+
         return hash_equals($known, $user);
     }
 }

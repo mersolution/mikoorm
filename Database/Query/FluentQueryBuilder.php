@@ -15,7 +15,7 @@ use Miko\Database\Exceptions\DatabaseException;
 
 /**
  * Modern Fluent Query Builder - replaces SQLView with better API
- * 
+ *
  * Features:
  * - Fluent interface
  * - Prepared statements (SQL injection safe)
@@ -122,8 +122,12 @@ class FluentQueryBuilder implements QueryBuilderInterface
     /**
      * @inheritDoc
      */
-    public function where(string $column, string $operator, mixed $value): self
+    public function where(mixed $column, mixed $operator = '=', mixed $value = null): self
     {
+        if ($column instanceof \Closure) {
+            return $this->addNestedWhere($column, 'AND');
+        }
+
         $param = $this->createParam();
         $this->wheres[] = "{$column} {$operator} {$param}";
         $this->bindings[$param] = $value;
@@ -133,8 +137,12 @@ class FluentQueryBuilder implements QueryBuilderInterface
     /**
      * @inheritDoc
      */
-    public function orWhere(string $column, string $operator, mixed $value): self
+    public function orWhere(mixed $column, mixed $operator = '=', mixed $value = null): self
     {
+        if ($column instanceof \Closure) {
+            return $this->addNestedWhere($column, 'OR');
+        }
+
         $param = $this->createParam();
         $prefix = empty($this->wheres) ? '' : 'OR ';
         $this->wheres[] = "{$prefix}{$column} {$operator} {$param}";
@@ -221,7 +229,7 @@ class FluentQueryBuilder implements QueryBuilderInterface
     public function orderBy(string $column, string $direction = 'ASC'): self
     {
         $direction = strtoupper($direction);
-        
+
         if (!in_array($direction, ['ASC', 'DESC'])) {
             throw new DatabaseException("Invalid order direction: {$direction}");
         }
@@ -343,13 +351,13 @@ class FluentQueryBuilder implements QueryBuilderInterface
     {
         $originalSelect = $this->selectColumns;
         $this->selectColumns = ['COUNT(*) as count'];
-        
+
         $sql = $this->toSql();
         $result = $this->connection->execute($sql, array_values($this->bindings));
         $data = $result->first();
-        
+
         $this->selectColumns = $originalSelect;
-        
+
         return (int) ($data['count'] ?? 0);
     }
 
@@ -400,13 +408,13 @@ class FluentQueryBuilder implements QueryBuilderInterface
     {
         $originalSelect = $this->selectColumns;
         $this->selectColumns = ["{$function}({$column}) as aggregate"];
-        
+
         $sql = $this->toSql();
         $result = $this->connection->execute($sql, array_values($this->bindings));
         $data = $result->first();
-        
+
         $this->selectColumns = $originalSelect;
-        
+
         return $data['aggregate'] ?? 0;
     }
 
@@ -480,15 +488,63 @@ class FluentQueryBuilder implements QueryBuilderInterface
     }
 
     /**
-     * Build WHERE clause
+     * Grouped where / orWhere
      */
-    protected function buildWhereClause(): string
+    private function addNestedWhere(\Closure $callback, string $boolean): self
+    {
+        $nested = new self($this->connection);
+        $nested->paramIndex = $this->paramIndex;
+        $callback($nested);
+        $this->paramIndex = $nested->paramIndex;
+
+        $inner = $nested->compileWheres();
+        if ($inner === '') {
+            return $this;
+        }
+
+        $fragment = '(' . $inner . ')';
+        if (!empty($this->wheres)) {
+            $fragment = $boolean . ' ' . $fragment;
+        }
+
+        $this->wheres[] = $fragment;
+        $this->bindings = array_merge($this->bindings, $nested->bindings);
+
+        return $this;
+    }
+
+    /**
+     * Compile WHERE fragments without the WHERE keyword.
+     */
+    protected function compileWheres(): string
     {
         if (empty($this->wheres)) {
             return '';
         }
 
-        return ' WHERE ' . implode(' AND ', $this->wheres);
+        $sql = '';
+        foreach ($this->wheres as $i => $where) {
+            $trimmed = preg_replace('/^(AND|OR)\s+/i', '', $where, 1, $count);
+            if ($i === 0) {
+                $sql .= $trimmed;
+                continue;
+            }
+            $bool = ($count === 1 && preg_match('/^(AND|OR)\s+/i', $where, $m))
+                ? strtoupper($m[1])
+                : 'AND';
+            $sql .= " {$bool} {$trimmed}";
+        }
+
+        return $sql;
+    }
+
+    /**
+     * Build WHERE clause
+     */
+    protected function buildWhereClause(): string
+    {
+        $inner = $this->compileWheres();
+        return $inner === '' ? '' : ' WHERE ' . $inner;
     }
 
     /**
@@ -558,7 +614,7 @@ class FluentQueryBuilder implements QueryBuilderInterface
         foreach ($this->unions as $union) {
             $type = $union['all'] ? 'UNION ALL' : 'UNION';
             $sql .= " {$type} (" . $union['query']->toSql() . ")";
-            
+
             // Merge bindings
             $this->bindings = array_merge($this->bindings, $union['query']->getBindings());
         }

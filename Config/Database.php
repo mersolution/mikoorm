@@ -12,7 +12,7 @@ use function Miko\Core\env;
 
 /**
  * Database Configuration
- * 
+ *
  * Database connection settings
  */
 

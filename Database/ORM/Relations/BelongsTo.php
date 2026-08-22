@@ -41,7 +41,7 @@ class BelongsTo extends Relation
         }
 
         $foreignKey = $this->parent->{$this->foreignKey};
-        
+
         if ($foreignKey !== null) {
             $this->newQuery()->where($this->localKey, '=', $foreignKey);
         }
@@ -67,7 +67,7 @@ class BelongsTo extends Relation
 
         foreach ($models as $model) {
             $key = $model->{$this->foreignKey};
-            
+
             if (isset($dictionary[$key])) {
                 $model->setRelation($relation, $dictionary[$key]);
             } else {
@@ -116,7 +116,7 @@ class BelongsTo extends Relation
     {
         $this->parent->{$this->foreignKey} = $model->{$this->localKey};
         $this->parent->setRelation($this->foreignKey, $model);
-        
+
         return $this->parent;
     }
 
@@ -127,7 +127,7 @@ class BelongsTo extends Relation
     {
         $this->parent->{$this->foreignKey} = null;
         $this->parent->setRelation($this->foreignKey, null);
-        
+
         return $this->parent;
     }
 }

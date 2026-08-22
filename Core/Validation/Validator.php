@@ -54,10 +54,16 @@ class Validator
         }
 
         $method = 'validate' . ucfirst($rule);
-        if (method_exists($this, $method)) {
-            if (!$this->$method($value, $params)) {
-                $this->addError($field, $rule, $params);
-            }
+        if (!method_exists($this, $method)) {
+            return;
+        }
+
+        $valid = $rule === 'confirmed'
+            ? $this->validateConfirmed($field, $value, $params)
+            : $this->$method($value, $params);
+
+        if (!$valid) {
+            $this->addError($field, $rule, $params);
         }
     }
 
@@ -118,6 +124,16 @@ class Validator
     /**
      * Check if field has error
      */
+    public function fails(): bool
+    {
+        return !empty($this->errors);
+    }
+
+    public function passes(): bool
+    {
+        return empty($this->errors);
+    }
+
     public function hasError(string $field): bool
     {
         return isset($this->errors[$field]);
@@ -125,7 +141,7 @@ class Validator
 
     // Validation Rules
 
-    private function validateRequired(mixed $value): bool
+    private function validateRequired(mixed $value, array $params = []): bool
     {
         if (is_null($value)) return false;
         if (is_string($value) && trim($value) === '') return false;
@@ -133,7 +149,7 @@ class Validator
         return true;
     }
 
-    private function validateEmail(mixed $value): bool
+    private function validateEmail(mixed $value, array $params = []): bool
     {
         if (empty($value)) return true;
         return filter_var($value, FILTER_VALIDATE_EMAIL) !== false;
@@ -153,32 +169,32 @@ class Validator
         return mb_strlen((string)$value) <= $max;
     }
 
-    private function validateNumeric(mixed $value): bool
+    private function validateNumeric(mixed $value, array $params = []): bool
     {
         if (empty($value)) return true;
         return is_numeric($value);
     }
 
-    private function validateInteger(mixed $value): bool
+    private function validateInteger(mixed $value, array $params = []): bool
     {
         if (empty($value)) return true;
         return filter_var($value, FILTER_VALIDATE_INT) !== false;
     }
 
-    private function validatePhone(mixed $value): bool
+    private function validatePhone(mixed $value, array $params = []): bool
     {
         if (empty($value)) return true;
         $digits = preg_replace('/\D/', '', $value);
         return strlen($digits) >= 10 && strlen($digits) <= 11;
     }
 
-    private function validateDate(mixed $value): bool
+    private function validateDate(mixed $value, array $params = []): bool
     {
         if (empty($value)) return true;
         return strtotime($value) !== false;
     }
 
-    private function validateUrl(mixed $value): bool
+    private function validateUrl(mixed $value, array $params = []): bool
     {
         if (empty($value)) return true;
         return filter_var($value, FILTER_VALIDATE_URL) !== false;
@@ -190,9 +206,9 @@ class Validator
         return in_array($value, $params);
     }
 
-    private function validateConfirmed(mixed $value, array $params): bool
+    private function validateConfirmed(string $field, mixed $value, array $params = []): bool
     {
-        $confirmField = $params[0] ?? '';
+        $confirmField = $params[0] ?? ($field . '_confirmation');
         return $value === ($this->data[$confirmField] ?? null);
     }
 
@@ -203,49 +219,49 @@ class Validator
         return preg_match($pattern, $value) === 1;
     }
 
-    private function validateIban(mixed $value): bool
+    private function validateIban(mixed $value, array $params = []): bool
     {
         if (empty($value)) return true;
         return self::isValidIBAN($value);
     }
 
-    private function validateUuid(mixed $value): bool
+    private function validateUuid(mixed $value, array $params = []): bool
     {
         if (empty($value)) return true;
         return self::isValidUUID($value);
     }
 
-    private function validateCreditCard(mixed $value): bool
+    private function validateCreditCard(mixed $value, array $params = []): bool
     {
         if (empty($value)) return true;
         return self::isValidCreditCard($value);
     }
 
-    private function validateIpv4(mixed $value): bool
+    private function validateIpv4(mixed $value, array $params = []): bool
     {
         if (empty($value)) return true;
         return filter_var($value, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false;
     }
 
-    private function validateIpv6(mixed $value): bool
+    private function validateIpv6(mixed $value, array $params = []): bool
     {
         if (empty($value)) return true;
         return filter_var($value, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false;
     }
 
-    private function validateIp(mixed $value): bool
+    private function validateIp(mixed $value, array $params = []): bool
     {
         if (empty($value)) return true;
         return filter_var($value, FILTER_VALIDATE_IP) !== false;
     }
 
-    private function validateMac(mixed $value): bool
+    private function validateMac(mixed $value, array $params = []): bool
     {
         if (empty($value)) return true;
         return self::isValidMAC($value);
     }
 
-    private function validateBic(mixed $value): bool
+    private function validateBic(mixed $value, array $params = []): bool
     {
         if (empty($value)) return true;
         return self::isValidBIC($value);
@@ -275,11 +291,11 @@ class Validator
     public static function isValidIBAN(string $iban): bool
     {
         $iban = strtoupper(str_replace(' ', '', $iban));
-        
+
         if (strlen($iban) < 15 || strlen($iban) > 34) {
             return false;
         }
-        
+
         $iban = substr($iban, 4) . substr($iban, 0, 4);
         $ibanNumeric = '';
 
@@ -303,7 +319,7 @@ class Validator
     public static function isValidCreditCard(string $number): bool
     {
         $number = preg_replace('/\D/', '', $number);
-        
+
         if (strlen($number) < 13 || strlen($number) > 19) {
             return false;
         }
@@ -315,14 +331,14 @@ class Validator
 
         for ($i = 0; $i < $length; $i++) {
             $digit = (int)$number[$i];
-            
+
             if ($i % 2 === $parity) {
                 $digit *= 2;
                 if ($digit > 9) {
                     $digit -= 9;
                 }
             }
-            
+
             $sum += $digit;
         }
 
@@ -331,7 +347,7 @@ class Validator
 
     public static function isValidMAC(string $mac): bool
     {
-        $pattern = '/^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/'; 
+        $pattern = '/^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/';
         return preg_match($pattern, $mac) === 1;
     }
 
